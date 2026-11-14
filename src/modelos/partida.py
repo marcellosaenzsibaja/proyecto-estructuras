@@ -4,7 +4,8 @@ from src.modelos.acciones import ABRIR, ACEPTADA, ATACAR, EQUIPAR, ESPERAR, MOVE
 from src.modelos.direcciones import LETRAS
 from src.modelos.entidades import Efecto, Enemigo, Jugador, Objeto, Trampa
 from src.modelos.errores import ContenidoNoDisponible, EstadoInvalido
-from src.modelos.fichas import ANTIDOTO, ANTORCHA, ARMA, ARMADURA, ERRANTE, GUARDIAN, LLAVE, PERGAMINO, POCION, RASTREADOR
+from src.modelos.cazador import MOVER as DECISION_MOVER, DecisorCazadores
+from src.modelos.fichas import ANTIDOTO, ANTORCHA, ARMA, ARMADURA, CAZADOR, ERRANTE, GUARDIAN, LLAVE, PERGAMINO, POCION, RASTREADOR
 from src.modelos.reloj import MotorReloj
 EN_CURSO = 'en_curso'
 VICTORIA = 'victoria'
@@ -75,6 +76,8 @@ class Partida:
         self._historial = []
         self._intervalo_actual = []
         self._grabando = False
+        # Infraestructura de cálculo del cazador: no se guarda ni se revierte (FR-021).
+        self._decisor = None
         estadisticas = cripta.datos.jugador
         self.jugador = Jugador(estadisticas.vida_max, estadisticas.ataque, estadisticas.defensa, estadisticas.velocidad, cripta.datos.inventario_max)
 
@@ -685,7 +688,19 @@ class Partida:
             if destino is not None:
                 self._mover_enemigo(enemigo, destino)
                 return self._costo_hacia(sala, destino)
+        elif comportamiento == CAZADOR:
+            decision = self.decisor_cazadores.decidir(sala, enemigo.ficha.rango, self.sala_actual)
+            if decision.accion == DECISION_MOVER:
+                self._mover_enemigo(enemigo, decision.salida.destino)
+            return decision.costo
         return COSTO_ESPERAR
+
+    @property
+    def decisor_cazadores(self) -> DecisorCazadores:
+        """Decisor de los cazadores, creado al primer uso (infraestructura, FR-021)."""
+        if self._decisor is None:
+            self._decisor = DecisorCazadores(self.cripta)
+        return self._decisor
 
     def _costo_hacia(self, sala, id_destino: int) -> int:
         """Costo de la salida abierta más barata hacia id_destino; empate por orden N, S, E, O (FR-015)."""

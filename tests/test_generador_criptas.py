@@ -195,9 +195,19 @@ class TestAmpliadaX10(unittest.TestCase):
         cripta = gc.cargar_cripta_sintetica(gc.fuente_sintetica(textos))
         self.assertEqual(len(cripta), 640)
 
-    @unittest.skip('Se activa con la referencia teórica de T025 (tests/referencia_cazador.py)')
     def test_region_en_rango_identica_FR030(self):
-        pass
+        from tests.referencia_cazador import distancias_desde_referencia
+        rango = 150
+        base_g = gc.generar(3, 8, 8)
+        jugador = base_g.id_sala(0)
+        base = gc.cargar_cripta_sintetica(gc.fuente_sintetica(gc.cripta_sintetica(3, 8, 8)))
+        grande = gc.cargar_cripta_sintetica(gc.fuente_sintetica(gc.cripta_ampliada_x10(3, 8, 8, jugador, rango)))
+        d_base = distancias_desde_referencia(base, jugador, 64)
+        d_grande = distancias_desde_referencia(grande, jugador, 640)
+        region_base = [i for i in range(1, 65) if 0 <= d_base[i] <= rango]
+        region_grande = [i for i in range(1, 641) if 0 <= d_grande[i] <= rango]
+        self.assertEqual(region_grande, region_base)
+        self.assertGreater(len(region_base), 1)
 
 
 if __name__ == '__main__':

@@ -233,7 +233,7 @@ exhaustiva contra la referencia teórica.
 
 ### Referencia teórica (escribir primero, antes de cualquier búsqueda)
 
-- [ ] T025 [US2] Crear `tests/referencia_cazador.py`, la **referencia teórica** independiente del código del juego. Debe ser deliberadamente simple y no compartir código con `rutas.py`, `cazador.py` ni `monticulo.py`:
+- [X] T025 [US2] Crear `tests/referencia_cazador.py`, la **referencia teórica** independiente del código del juego. Debe ser deliberadamente simple y no compartir código con `rutas.py`, `cazador.py` ni `monticulo.py`:
   - `dist_referencia(cripta, origen, destino)`: búsqueda de costo mínimo **sin cota y sin reutilización**, con distancias y marcas de asentada en `list` de tamaño `n + 1` **indexadas por id** (G5), que en cada paso escoge la sala pendiente de menor costo **recorriendo linealmente** los ids `1..n` (O(n²), sin montículo), solo por salidas con puerta abierta en ese instante, con enteros (D1) y orden de salidas N, S, E, O (D2);
   - `decision_referencia(cripta, cazador, jugador)`: aplica la regla del enunciado **literalmente**: misma sala → `ATACAR`; `d = dist_referencia(u, jugador)`; sin ruta o `d > rango` → `ESPERAR`; si no, calcula `dist_referencia(v, jugador)` **desde cada vecina** `v` por separado y elige con la clave D4;
   - devuelve una tupla comparable `(accion, id_vecina, direccion, costo_accion)`;
@@ -241,38 +241,38 @@ exhaustiva contra la referencia teórica.
 
 ### Tests for User Story 2 (escribir primero) ⚠️
 
-- [ ] T026 [P] [US2] En `tests/test_cazador.py`: US2-1, misma sala → ataca con costo 100 y no se mueve {FR-010}
-- [ ] T027 [P] [US2] En `tests/test_cazador.py`: US2-2 / Apéndice B, sin ruta abierta → espera con costo 100 {FR-011, FR-012}
-- [ ] T028 [P] [US2] En `tests/test_cazador.py`: US2-3 / Apéndice B, `d > rango` → espera; US2-4, `d == rango` → se mueve {FR-012, FR-013}
-- [ ] T029 [P] [US2] En `tests/test_cazador.py`: US2-5 / Apéndice B, gana la ruta de menos costo aunque tenga más salas {FR-011, FR-013}
-- [ ] T030 [P] [US2] En `tests/test_cazador.py`: US2-6 / Apéndice B, dos vecinas con rutas mínimas → la de menor id; cuadrícula de costos uniformes con muchísimas rutas de igual costo que se separan y se vuelven a unir, donde la respuesta esperada está calculada a mano {FR-014}
-- [ ] T031 [P] [US2] En `tests/test_cazador.py`: dos salidas hacia la misma vecina → la abierta más barata y, si empatan, el orden N, S, E, O; la acción cuesta la salida elegida (US2-7); y otro enemigo que ocupa una sala de la ruta no la bloquea: el cazador pasa igual (caso borde de la spec) {FR-013, FR-015, FR-017}
-- [ ] T032 [P] [US2] En `tests/test_cazador.py`: US2-8, no atraviesa puertas cerradas aunque exista la llave; US2-9, la decisión no depende de si el contenido de una sala está descargado {FR-016, FR-017}
-- [ ] T033 [P] [US2] En `tests/test_cazador.py`: US2-10, dormido no actúa aunque el jugador esté en rango; se activa al entrar el jugador, con primera acción de costo base 100; `rango` 0 → espera {FR-018, FR-012}
-- [ ] T034 [P] [US2] En `tests/test_determinismo_cazador.py`, pruebas de **determinismo total**:
+- [X] T026 [P] [US2] En `tests/test_cazador.py`: US2-1, misma sala → ataca con costo 100 y no se mueve {FR-010}
+- [X] T027 [P] [US2] En `tests/test_cazador.py`: US2-2 / Apéndice B, sin ruta abierta → espera con costo 100 {FR-011, FR-012}
+- [X] T028 [P] [US2] En `tests/test_cazador.py`: US2-3 / Apéndice B, `d > rango` → espera; US2-4, `d == rango` → se mueve {FR-012, FR-013}
+- [X] T029 [P] [US2] En `tests/test_cazador.py`: US2-5 / Apéndice B, gana la ruta de menos costo aunque tenga más salas {FR-011, FR-013}
+- [X] T030 [P] [US2] En `tests/test_cazador.py`: US2-6 / Apéndice B, dos vecinas con rutas mínimas → la de menor id; cuadrícula de costos uniformes con muchísimas rutas de igual costo que se separan y se vuelven a unir, donde la respuesta esperada está calculada a mano {FR-014}
+- [X] T031 [P] [US2] En `tests/test_cazador.py`: dos salidas hacia la misma vecina → la abierta más barata y, si empatan, el orden N, S, E, O; la acción cuesta la salida elegida (US2-7); y otro enemigo que ocupa una sala de la ruta no la bloquea: el cazador pasa igual (caso borde de la spec) {FR-013, FR-015, FR-017}
+- [X] T032 [P] [US2] En `tests/test_cazador.py`: US2-8, no atraviesa puertas cerradas aunque exista la llave; US2-9, la decisión no depende de si el contenido de una sala está descargado {FR-016, FR-017}
+- [X] T033 [P] [US2] En `tests/test_cazador.py`: US2-10, dormido no actúa aunque el jugador esté en rango; se activa al entrar el jugador, con primera acción de costo base 100; `rango` 0 → espera {FR-018, FR-012}
+- [X] T034 [P] [US2] En `tests/test_determinismo_cazador.py`, pruebas de **determinismo total**:
   - la misma cripta, semilla y acciones ejecutadas dos veces producen la misma traza de decisiones `(instante, id_cazador, accion, id_vecina, direccion, costo)`, comparada elemento por elemento;
   - D5: cargar las mismas salas en orden de páginas invertido o barajado con semilla produce **exactamente** la misma traza;
   - los modos `compartido` e `individual` producen la misma traza;
   - ninguna decisión usa `float`: se verifica que las distancias registradas son `int`. {FR-014, FR-019, FR-022, FR-027}
-- [ ] T035 [US2] En `tests/test_cazador.py`, **comparación exhaustiva con la referencia** (depende de T025): en 50 criptas sintéticas sembradas pequeñas (de 10 a 40 salas, costos entre 1 y 300, con puertas cerradas al azar), para **cada** par (sala del cazador, sala del jugador) y para rangos {0, 1, 100, 250, 600, sin límite práctico}, la decisión del juego en ambos modos es idéntica a `decision_referencia`, comparando la tupla completa {FR-011, FR-012, FR-013, FR-014, FR-015, FR-019, FR-022}
+- [X] T035 [US2] En `tests/test_cazador.py`, **comparación exhaustiva con la referencia** (depende de T025): en 50 criptas sintéticas sembradas pequeñas (de 10 a 40 salas, costos entre 1 y 300, con puertas cerradas al azar), para **cada** par (sala del cazador, sala del jugador) y para rangos {0, 1, 100, 250, 600, sin límite práctico}, la decisión del juego en ambos modos es idéntica a `decision_referencia`, comparando la tupla completa {FR-011, FR-012, FR-013, FR-014, FR-015, FR-019, FR-022}
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] Implementar `BuscadorRutas.distancias_desde(sala_origen, cota)` en `src/modelos/rutas.py` (research R5 y R9) con este algoritmo exacto:
+- [X] T036 [US2] Implementar `BuscadorRutas.distancias_desde(sala_origen, cota)` en `src/modelos/rutas.py` (research R5 y R9) con este algoritmo exacto:
   1. `registro.nueva_busqueda()`; `monticulo.vaciar()`; registrar `distancia[origen] = 0` e insertar `(0, origen.indice)`.
   2. **Expandir hasta `cota`**: mientras el montículo no esté vacío, **consultar** `(c, i) = minimo()`. Si `c > cota`, **pausar**: la entrada queda en el montículo y se guarda `cota_alcanzada = cota`. Si no, extraerla; si es obsoleta según la regla de T010, descartarla y continuar; si no, marcar `i` como asentada.
   3. Para cada salida de la sala `i` en orden N, S, E, O (D2) con puerta abierta: `nc = c + puerta.costo`. Si la vecina no está asentada y (no tiene distancia en esta generación o `nc < distancia[vecina]`), registrar `distancia[vecina] = nc` (si es la primera vez en la generación, sumar 1 a `examinadas`) e insertar `(nc, vecina.indice)`, **aunque `nc > cota`**: esas entradas forman el borde y permiten retomar la búsqueda después.
   4. **`extender_hasta(cota_nueva)`**: si `cota_nueva > cota_alcanzada`, repetir el paso 2 con la misma generación y el mismo montículo; si no, no hace nada. Así, la decisión de un cazador de rango r solo examina salas a distancia ≤ r y su borde (FR-030), y un rango mayor retoma sin repetir trabajo (research R5).
   5. En pausa, toda sala con distancia real ≤ `cota_alcanzada` está asentada con su distancia exacta. Nunca se lee la niebla de guerra ni el contenido de las salas. {FR-011, FR-016, FR-017, FR-030}
-- [ ] T037 [US2] Implementar `BuscadorRutas.primer_paso_desde(origen, objetivo, cota)` (modo individual) en `src/modelos/rutas.py` (depende de T036):
+- [X] T037 [US2] Implementar `BuscadorRutas.primer_paso_desde(origen, objetivo, cota)` (modo individual) en `src/modelos/rutas.py` (depende de T036):
   - igual que T036, pero desde la sala del cazador; para cada vecina directa `v` del origen se fija `primer_paso[v] = id(v)` al relajarla;
   - al relajar `w` desde `x` con `nc == distancia[w]` (empate), se actualiza `primer_paso[w] = min(primer_paso[w], primer_paso[x])`; con `nc < distancia[w]`, se reemplaza por `primer_paso[x]`. Como todo costo es ≥ 1, todas las mejoras y empates de `w` llegan antes de que `w` se asiente;
   - se detiene al **asentar** el objetivo (su distancia ya es la mínima) o al superar la cota;
   - devuelve `d` y la vecina `primer_paso[objetivo]`; la salida concreta hacia esa vecina se elige con D4. {FR-013, FR-014, FR-015, FR-030}
-- [ ] T038 [US2] Implementar en `src/modelos/cazador.py` la **regla de decisión local** común a ambos modos: dada la sala `u` y una función `dist(v)` (registrada o ausente), recorrer las salidas de `u` en orden N, S, E, O, descartar puertas cerradas y vecinas **no asentadas** (solo las distancias asentadas son exactas), y quedarse con la tupla mínima D4; devolver `ESPERAR` si no hay candidata o su total supera `rango` {FR-012, FR-013, FR-014, FR-015}
-- [ ] T039 [US2] Implementar `DecisorCazadores.decidir(cazador)` en `src/modelos/cazador.py` con modo `compartido` **incremental** (una búsqueda T036 desde la sala del jugador que, para cada cazador que decide, se lleva con `extender_hasta(rango del cazador)` y luego aplica la regla T038; research R5) y modo `individual` (T037 por cazador con su propio rango), sin reutilización todavía (depende de T036, T037 y T038) {FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-022}
-- [ ] T040 [US2] Integrar el comportamiento `CAZADOR` en `Partida._comportamiento` y `_turno_enemigo` de `src/modelos/partida.py` usando `DecisorCazadores` y el costo de la acción decidida (depende de T021 y T039) {FR-010, FR-012, FR-013, FR-018}
-- [ ] T041 [US2] Asegurar que el cazador usa activación, combate, muerte, `suelta` y efectos de P1 sin ramas especiales en `src/modelos/partida.py`; ajustar si T033 falla {FR-018}
+- [X] T038 [US2] Implementar en `src/modelos/cazador.py` la **regla de decisión local** común a ambos modos: dada la sala `u` y una función `dist(v)` (registrada o ausente), recorrer las salidas de `u` en orden N, S, E, O, descartar puertas cerradas y vecinas **no asentadas** (solo las distancias asentadas son exactas), y quedarse con la tupla mínima D4; devolver `ESPERAR` si no hay candidata o su total supera `rango` {FR-012, FR-013, FR-014, FR-015}
+- [X] T039 [US2] Implementar `DecisorCazadores.decidir(cazador)` en `src/modelos/cazador.py` con modo `compartido` **incremental** (una búsqueda T036 desde la sala del jugador que, para cada cazador que decide, se lleva con `extender_hasta(rango del cazador)` y luego aplica la regla T038; research R5) y modo `individual` (T037 por cazador con su propio rango), sin reutilización todavía (depende de T036, T037 y T038) {FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-022}
+- [X] T040 [US2] Integrar el comportamiento `CAZADOR` en `Partida._comportamiento` y `_turno_enemigo` de `src/modelos/partida.py` usando `DecisorCazadores` y el costo de la acción decidida (depende de T021 y T039) {FR-010, FR-012, FR-013, FR-018}
+- [X] T041 [US2] Asegurar que el cazador usa activación, combate, muerte, `suelta` y efectos de P1 sin ramas especiales en `src/modelos/partida.py`; ajustar si T033 falla {FR-018}
 
 **Checkpoint**: US1 y US2 funcionan; T034 y T035 dan cero diferencias con la referencia.
 
