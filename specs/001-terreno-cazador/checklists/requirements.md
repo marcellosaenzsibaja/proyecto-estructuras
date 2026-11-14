@@ -40,6 +40,6 @@
   `/speckit-clarify` (sesión 2026-11-14): activación del cazador (FR-018), datos inválidos (FR-008 y
   FR-009), varias salidas hacia la misma vecina (FR-015) y verificación por conteo del costo
   acotado por el rango (FR-030 y SC-004). FR-021 se ajustó a pedido del grupo.
-- FR-021 cita la prohibición de `dict` y `set` del Principio I de la constitución a pedido del
-  grupo. Es una restricción, no una elección de estructura, así que no contradice la regla de no
-  nombrar estructuras en `spec.md`.
+- FR-021 remite al Principio I de la constitución sin nombrar estructuras concretas. Se
+  reformuló durante `/speckit-analyze` (hallazgo C1) para cumplir la regla de que `spec.md` no
+  contiene nombres de estructuras; la lista concreta de prohibiciones vive en la constitución.

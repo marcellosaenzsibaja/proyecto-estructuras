@@ -282,8 +282,8 @@ con criptas sintéticas deterministas por semilla.
   cambie la decisión. Esa información auxiliar no es estado del juego: no se guarda, no forma parte
   del retroceso y su presencia o ausencia no altera ninguna partida. Toda información que se
   conserve o reutilice para estos cálculos DEBE cumplir el Principio I de la constitución: la
-  implementa el grupo y está PROHIBIDO usar `dict` (ni `set`) como índice, caché o registro de
-  esa información; ni estructuras equivalentes de biblioteca como índice, caché o registro.
+  implementa el grupo y está PROHIBIDO usar estructuras de conveniencia del lenguaje o estructuras
+  equivalentes de biblioteca como índice, caché o registro de esa información.
 - **FR-022**: Con varios cazadores activos, la decisión de cada uno DEBE ser la misma que tendría si
   fuera el único que calcula, sin importar si el cálculo se comparte o es individual.
 
