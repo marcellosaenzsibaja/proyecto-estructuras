@@ -21,6 +21,24 @@ cazadores en la vista; y las mediciones de `--bench` asociadas.
 **Fuera del alcance** (tienen su propia especificación): niebla de guerra e «ir a» (002),
 verificación de resolubilidad (003) y línea de tiempo (004).
 
+## Clarifications
+
+### Session 2026-11-14
+
+- Q: ¿Desde cuándo actúa un cazador: desde que el jugador entra a su sala o desde el inicio de la
+  partida? → A: Como cualquier enemigo (P1 §2.4): dormido hasta que el jugador entra a su sala; una
+  vez activo sigue activo aunque cambie de sala.
+- Q: Si el servicio entrega una salida con `costo` menor que 1 o no entero, o un cazador sin
+  `rango`, ¿qué debe hacer el programa? → A: Error de datos: se informa la sala y la dirección (o
+  el id de la ficha) y esa cripta no se juega; nunca se corrige en silencio.
+- Q: Si dos salidas de una misma sala llevan a la misma sala vecina, ¿por cuál pasa el cazador?
+  → A: Por la salida abierta más barata; si cuestan lo mismo, por el orden fijo de direcciones
+  N, S, E, O.
+- Q: ¿Cómo debe comprobarse que decidir la jugada de un cazador con rango pequeño no se vuelve más
+  caro cuando la cripta crece? → A: Por conteo: una decisión solo examina salas a distancia de
+  costo ≤ `rango` más su borde inmediato, y ese número no cambia si la cripta crece 10 veces con la
+  misma región dentro del rango; `--bench` reporta además los tiempos.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - El terreno determina cuánto tarda moverse (Priority: P1)
@@ -90,6 +108,10 @@ el costo de la acción.
 9. **Given** un cazador cuya sala de destino nunca ha sido visitada por el jugador ni tiene su
    contenido descargado, **When** decide, **Then** su decisión es la misma que si el contenido
    estuviera descargado: solo dependen del esqueleto y del estado de las puertas.
+10. **Given** un cazador en una sala a la que el jugador nunca ha entrado, **When** avanza el reloj,
+    **Then** no actúa aunque el jugador esté dentro de su `rango`; **When** el jugador entra a esa
+    sala, **Then** se activa y su primera acción se programa con una acción base de costo 100
+    (P1 §2.4).
 
 ---
 
@@ -177,8 +199,8 @@ con criptas sintéticas deterministas por semilla.
   abierto: el cazador toma el rodeo si su costo no supera el rango.
 - Muchas rutas de igual costo, incluidas rutas que se separan y se vuelven a unir: el desempate se
   aplica solo sobre la vecina del primer paso y siempre elige la de menor id.
-- Dos salidas distintas de la sala del cazador llevan a la misma vecina: cuenta la de menor costo,
-  y la acción cuesta el costo de esa salida.
+- Dos salidas distintas de la sala del cazador llevan a la misma vecina: cuenta la abierta de menor
+  costo; si empatan, la primera en el orden N, S, E, O. La acción cuesta el costo de esa salida.
 - El cazador está dormido (el jugador aún no entra a su sala): no actúa hasta activarse según
   P1 §2.4.
 - Otro enemigo ocupa una sala de la ruta: no bloquea el paso; los actores no impiden el movimiento.
@@ -216,8 +238,9 @@ con criptas sintéticas deterministas por semilla.
 **Cazador: reglas de decisión**
 
 - **FR-009**: El sistema DEBE soportar el comportamiento de enemigo `cazador`, cuya ficha incluye
-  `rango`, un entero en unidades de costo. Una ficha `cazador` sin `rango` válido DEBE reportarse
-  como error de datos.
+  `rango`, un entero mayor o igual que 0 en unidades de costo. Una ficha `cazador` sin `rango`
+  válido DEBE reportarse como error de datos que identifique el id de la ficha, y la cripta no se
+  juega con ese dato; nunca se asume un valor por defecto.
 - **FR-010**: En su turno, si el cazador comparte sala con el jugador, DEBE atacar según P1 §2.6 con
   costo 100 y no moverse.
 - **FR-011**: Si no comparte sala, DEBE considerar el costo mínimo `d` para llegar desde su sala
@@ -229,14 +252,18 @@ con criptas sintéticas deterministas por semilla.
 - **FR-014**: Desempate: siendo `u` la sala del cazador, entre las vecinas `v` que cumplen
   `costo(u, v) + dist(v, jugador) = d`, el cazador DEBE moverse a la de menor id. El resultado NO
   DEBE depender del método de cálculo.
-- **FR-015**: Si varias salidas de `u` llevan a la misma vecina, `costo(u, v)` DEBE ser el menor de
-  sus costos entre las que estén abiertas, y la acción cuesta el de esa salida.
+- **FR-015**: Si varias salidas abiertas de `u` llevan a la misma vecina `v`, `costo(u, v)` DEBE
+  ser el menor de sus costos y el cazador DEBE atravesar esa salida. Si dos o más empatan en costo,
+  DEBE elegirse la primera según el orden fijo de direcciones N, S, E, O. La acción cuesta el costo
+  de la salida elegida.
 - **FR-016**: El cazador NO DEBE abrir puertas cerradas, aunque exista la llave correspondiente.
 - **FR-017**: La decisión del cazador DEBE depender solo del esqueleto completo (con los costos) y
   del estado real actual de las puertas. NO DEBE depender de la niebla de guerra del jugador ni de
   si el contenido de una sala ya fue descargado.
-- **FR-018**: La activación, el combate, la muerte, el campo `suelta` y los efectos del cazador
-  DEBEN seguir las reglas generales de enemigos de la primera parte.
+- **FR-018**: El cazador DEBE activarse como cualquier enemigo (P1 §2.4): permanece dormido, sin
+  decidir ni actuar, hasta que el jugador entra a su sala; una vez activo sigue activo aunque cambie
+  de sala. Su combate, muerte, campo `suelta` y efectos DEBEN seguir las reglas generales de
+  enemigos de la primera parte.
 
 **Cazador: equivalencia observable**
 
@@ -277,7 +304,9 @@ con criptas sintéticas deterministas por semilla.
 **Rendimiento y medición**
 
 - **FR-030**: El trabajo de una decisión de un cazador con `rango` pequeño DEBE ser proporcional a
-  la región de la cripta que queda dentro de su rango, no al tamaño total de la cripta.
+  la región de la cripta que queda dentro de su rango, no al tamaño total de la cripta: para
+  decidir solo se examinan salas a distancia de costo ≤ `rango` y su borde inmediato (las salas
+  donde se detecta que se supera el rango).
 - **FR-031**: El ciclo de eventos entre dos decisiones consecutivas del jugador DEBE tomar menos de
   20 ms en la cripta de referencia con decenas de cazadores activos, sin red ni renderizado.
 - **FR-032**: `--bench` DEBE medir la decisión del cazador con un cazador frente a muchos, con rango
@@ -314,8 +343,10 @@ con criptas sintéticas deterministas por semilla.
   calculada desde cero.
 - **SC-003**: Con al menos 30 cazadores activos en la cripta de referencia, ningún ciclo de eventos
   entre dos decisiones del jugador supera los 20 ms en el equipo local.
-- **SC-004**: Con un rango fijo, el tiempo medio de una decisión del cazador no crece más del doble
-  cuando la cripta crece 10 veces y la región dentro del rango se mantiene igual.
+- **SC-004**: Con un rango fijo, el número de salas examinadas en una decisión del cazador es
+  exactamente el mismo cuando la cripta sintética crece 10 veces manteniendo igual la región dentro
+  del rango, y ninguna sala examinada está más allá del rango salvo su borde inmediato. `--bench`
+  reporta además el tiempo medio de decisión en ambos tamaños como evidencia complementaria.
 - **SC-005**: Dos reproducciones con `--replay` del mismo `partida.log` producen exactamente la
   misma secuencia de decisiones de los cazadores.
 - **SC-006**: `--bench` reporta los cuatro grupos de mediciones de la User Story 5, y dos ejecuciones
@@ -325,15 +356,10 @@ con criptas sintéticas deterministas por semilla.
 
 ## Assumptions
 
-- Las reglas de activación de la primera parte (P1 §2.4) aplican al cazador: está dormido hasta que
-  el jugador entra a su sala y, una vez activo, sigue activo aunque cambie de sala.
 - Los demás actores no bloquean el paso: el cazador puede atravesar salas ocupadas por otros
   enemigos.
 - En el instante en que decide, el cazador mide hasta la sala en la que está el jugador en ese
   momento, no hasta donde estará después.
-- Un costo de salida inválido o una ficha `cazador` sin `rango` se tratan como errores de datos que
-  se reportan con contexto, en lugar de corregirse en silencio (el enunciado solo define valores
-  válidos).
 - La cripta de referencia y las criptas con decenas de cazadores las publicará el profesor. Mientras
   tanto, el límite de 20 ms se verifica con criptas sintéticas de `--bench` de tamaño comparable a
   la cripta publicada más grande.

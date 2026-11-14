@@ -36,9 +36,10 @@
   `costo` y `rango` son parte del contrato del juego y del enunciado, no detalles de implementación.
 - Los 7 casos de «Terreno y cazador» del Apéndice B de P2 aparecen como escenarios de aceptación:
   US2-2, US2-3, US2-5, US2-6, US3-1, US1-3 y US1-4.
-- Tres decisiones no vienen literalmente del enunciado y conviene confirmarlas en
-  `/speckit-clarify`: FR-008 y FR-009 (qué hacer con datos inválidos), FR-015 (varias salidas hacia
-  la misma vecina) y FR-021 (la información reutilizada no es estado del juego).
+- Las decisiones que no venían literalmente del enunciado se confirmaron con el grupo en
+  `/speckit-clarify` (sesión 2026-11-14): activación del cazador (FR-018), datos inválidos (FR-008 y
+  FR-009), varias salidas hacia la misma vecina (FR-015) y verificación por conteo del costo
+  acotado por el rango (FR-030 y SC-004). FR-021 se ajustó a pedido del grupo.
 - FR-021 cita la prohibición de `dict` y `set` del Principio I de la constitución a pedido del
   grupo. Es una restricción, no una elección de estructura, así que no contradice la regla de no
   nombrar estructuras en `spec.md`.
