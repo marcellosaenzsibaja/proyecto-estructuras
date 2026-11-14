@@ -145,3 +145,15 @@
 - Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-implement`)
 - Prompt: "Sí, ambas"; "Reviso primero"; "ya lo revise , puedes seguir"
 - Uso de la respuesta: implementar las fases 1 a 3 de `specs/001-terreno-cazador/tasks.md` (generador de criptas, base de estructuras, costo y rango, y US1 del terreno en el movimiento).
+
+## Entrada 25
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-implement`)
+- Prompt: "Sí, ambas"
+- Uso de la respuesta: implementar la fase 4 de 001 (referencia teórica, búsqueda con pausa y extensión, modo individual e integración del cazador en la partida).
+
+## Entrada 26
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-implement`)
+- Prompt: "Sí, fase 5"
+- Uso de la respuesta: implementar la fase 5 de 001 (punto único de cambio de puertas, reutilización de rutas con no recálculo demostrado y guardado que continúa con las mismas decisiones).
