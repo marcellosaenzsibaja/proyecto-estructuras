@@ -118,7 +118,7 @@ demás.
   modelo o por id en la referencia, con tamaño `n + 1`) y usa una `list` como pila o cola. Nunca se
   usa `set`, `dict` ni `in` sobre una lista de visitadas.
 
-- [ ] T001 Implementar `src/servicios/generador_criptas.py`, usado tanto por las pruebas como por `--bench` (FR-035), con estas funciones:
+- [X] T001 Implementar `src/servicios/generador_criptas.py`, usado tanto por las pruebas como por `--bench` (FR-035), con estas funciones:
   - `cripta_sintetica(semilla, ancho, alto, costo_min=1, costo_max=300, prob_cerrada=0.0, prob_sin_costo=0.0, prob_hueco=0.0, conexa=True, conexa_abierta=False)`: cuadrícula `ancho × alto` donde cada sala se conecta con sus vecinas N, S, E, O. Usa una sola instancia `rng = random.Random(semilla)` y consume sus números **siempre en este orden**, para que la misma semilla dé la misma cripta (G3):
     1. **Permutación de ids** con Fisher–Yates sobre `id_de_posicion` y cálculo de `posicion_de_id` (G4).
     2. **Árbol de expansión** (solo si `conexa`): recorrido en profundidad desde la posición 0 con `visitada = [False] * n` (lista indexada por posición, G5) y `pila = [0]` (`list`). En cada paso se toma la posición de la cima, se juntan en una `list` sus vecinas no visitadas en orden N, S, E, O; si hay, se elige una con `rng.randrange(len(candidatas))`, se marca `en_arbol[numero_conexion] = True` y `visitada[v] = True`, y se apila; si no hay, se desapila. Termina con la pila vacía.
@@ -132,7 +132,7 @@ demás.
   - `ficha_cazador(id, rango, velocidad=100, ...)`: texto JSON de una ficha de catálogo con `comportamiento: cazador` y `rango`, armado igual que las salas;
   - `cargar_cripta_sintetica(paginas)`: entrega los textos mediante una fuente en memoria, `src/adaptadores/fuente_memoria.py`, que implementa la misma interfaz de fuente de datos que usa `--offline` (`src/adaptadores/fuente_datos.py`, P1 §3.4), la cual lee cada texto con `json.loads`, y construye la `Cripta` con el cargador real (G1). Así el modelo no distingue datos sintéticos de datos del servicio;
   - ningún `dict` ni `set` en todo el módulo: todo el estado interno va en `list` indexadas (G4, G5). {FR-001, FR-002, FR-030, FR-035}
-- [ ] T002 Escribir `tests/test_generador_criptas.py`, que verifica la corrección del generador antes de usarlo en cualquier otra prueba:
+- [X] T002 Escribir `tests/test_generador_criptas.py`, que verifica la corrección del generador antes de usarlo en cualquier otra prueba:
   - G3: la misma semilla produce exactamente los mismos textos (comparación de `str`); semillas distintas producen textos distintos;
   - G2: cada salida tiene su pareja opuesta con el mismo costo y el mismo estado de puerta; no hay direcciones repetidas ni destinos inexistentes; los ids son exactamente `1..n`;
   - G1: cada fragmento es JSON válido; al **leerlo** con `json.loads`, la estructura coincide campo por campo con G1 (claves permitidas comparadas contra una `list` de nombres, orden N, S, E, O, campos opcionales omitidos cuando no aplican, tipos `int` y `str`, salas ordenadas por id). La prueba solo lee los diccionarios producidos por `json.loads`; no escribe ninguno;
@@ -141,8 +141,8 @@ demás.
   - las proporciones de huecos, puertas cerradas y costos omitidos están dentro de ±5 puntos de lo pedido en una cripta de 10 000 salas;
   - `cripta_ampliada_x10`: tiene 10 veces las salas, y el conjunto de salas a distancia ≤ rango de la sala del jugador (calculado con la referencia de T025) es idéntico en ambas (este punto se activa cuando exista T025);
   - la cripta generada se carga sin error con el cargador real (G1). {FR-001, FR-002, FR-030, FR-035}
-- [ ] T003 Crear `tests/utilidades_cripta.py` con constructores de criptas pequeñas **escritas a mano** para los escenarios de aceptación: `cripta_desde_conexiones([(id_a, dir, id_b, costo, cerrada, llave), ...])`, que crea automáticamente la salida opuesta, arma el texto JSON con las mismas funciones de texto de T001 (sin crear diccionarios), lo carga con `cargar_cripta_sintetica` y aplica G1 y G2 (lanza error si se repite una dirección o una conexión es incoherente), más ayudas para colocar al jugador y a los cazadores, reutilizando `tests/utilidades.py` {FR-001, FR-011}
-- [ ] T004 Ejecutar `python -m pytest -q` y registrar que la batería de P1 pasa antes de empezar (línea base de SC-007) {FR-005, FR-007, SC-007}
+- [X] T003 Crear `tests/utilidades_cripta.py` con constructores de criptas pequeñas **escritas a mano** para los escenarios de aceptación: `cripta_desde_conexiones([(id_a, dir, id_b, costo, cerrada, llave), ...])`, que crea automáticamente la salida opuesta, arma el texto JSON con las mismas funciones de texto de T001 (sin crear diccionarios), lo carga con `cargar_cripta_sintetica` y aplica G1 y G2 (lanza error si se repite una dirección o una conexión es incoherente), más ayudas para colocar al jugador y a los cazadores, reutilizando `tests/utilidades.py` {FR-001, FR-011}
+- [X] T004 Ejecutar `python -m pytest -q` y registrar que la batería de P1 pasa antes de empezar (línea base de SC-007) {FR-005, FR-007, SC-007}
 
 ---
 
