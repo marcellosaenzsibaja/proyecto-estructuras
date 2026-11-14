@@ -95,6 +95,8 @@ src/
 │   ├── rutas.py                # NUEVO  BuscadorRutas (búsqueda acotada, modo primer paso)
 │   ├── cazador.py              # NUEVO  DecisorCazadores (compartido/individual, reutilización)
 │   └── partida.py              # MOD    costo de movimiento, turno del cazador, version_puertas
+├── adaptadores/
+│   └── fuente_memoria.py       # NUEVO  fuente de datos en memoria para criptas sintéticas (misma interfaz que --offline)
 ├── servicios/
 │   ├── cargador_cripta.py      # MOD    leer y validar costo (FR-001, FR-008)
 │   ├── fabrica_fichas.py       # MOD    leer y validar rango (FR-009)

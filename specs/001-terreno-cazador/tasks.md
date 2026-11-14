@@ -130,7 +130,7 @@ demás.
   - `cripta_ampliada_x10(semilla, parametros_base, sala_jugador, rango)`: regenera la base con la misma semilla y parámetros (sus listas internas de G4, no texto ya leído) y devuelve una cripta 10 veces más grande en la que la **región a distancia ≤ rango de `sala_jugador` es idéntica** a la de `base`. Las salas nuevas se cuelgan de una sala de la base que está fuera del rango, mediante un pasillo cuyo costo supera `rango`, para que ninguna sala nueva quede dentro de la región (SC-004);
   - `paginar(fragmentos, tam_pagina, semilla=None)`: parte la lista de fragmentos en textos de página como el servicio, en orden original o barajado con Fisher–Yates sembrado (para D5);
   - `ficha_cazador(id, rango, velocidad=100, ...)`: texto JSON de una ficha de catálogo con `comportamiento: cazador` y `rango`, armado igual que las salas;
-  - `cargar_cripta_sintetica(paginas)`: entrega los textos mediante una fuente en memoria que implementa la misma interfaz de fuente de datos que usa `--offline` (`src/adaptadores/fuente_datos.py`, P1 §3.4), la cual lee cada texto con `json.loads`, y construye la `Cripta` con el cargador real (G1). Así el modelo no distingue datos sintéticos de datos del servicio;
+  - `cargar_cripta_sintetica(paginas)`: entrega los textos mediante una fuente en memoria, `src/adaptadores/fuente_memoria.py`, que implementa la misma interfaz de fuente de datos que usa `--offline` (`src/adaptadores/fuente_datos.py`, P1 §3.4), la cual lee cada texto con `json.loads`, y construye la `Cripta` con el cargador real (G1). Así el modelo no distingue datos sintéticos de datos del servicio;
   - ningún `dict` ni `set` en todo el módulo: todo el estado interno va en `list` indexadas (G4, G5). {FR-001, FR-002, FR-030, FR-035}
 - [ ] T002 Escribir `tests/test_generador_criptas.py`, que verifica la corrección del generador antes de usarlo en cualquier otra prueba:
   - G3: la misma semilla produce exactamente los mismos textos (comparación de `str`); semillas distintas producen textos distintos;
@@ -171,23 +171,23 @@ la prohibición no dependa de revisiones manuales.
 - [ ] T006 [P] Escribir `tests/test_monticulo.py` para el mecanismo exacto de T010:
   - orden por la tupla `(costo, indice)` (D3), con empates de costo resueltos por menor índice;
   - **entradas obsoletas**: insertar `(50, 7)` y después `(30, 7)` para la misma sala; el primer `extraer_minimo` devuelve `(30, 7)`; el `(50, 7)` sigue en el montículo y, al extraerlo, el consumidor lo reconoce como obsoleto (ver T010), así que una sala nunca se asienta dos veces;
-  - el tamaño del montículo es el número de inserciones menos el de extracciones (las obsoletas no se borran antes de tiempo);
+  - el tamaño del montículo es el número de inserciones menos el de extracciones (las obsoletas no se borran antes de tiempo); `minimo()` devuelve lo mismo que el siguiente `extraer_minimo()` y no cambia el tamaño;
   - `extraer_minimo` en vacío lanza `IndexError`; `vaciar()` deja el montículo reutilizable;
   - secuencia sembrada de 10 000 operaciones comparada con una referencia de búsqueda lineal: misma secuencia de extracciones. {FR-014, FR-030}
-- [ ] T007 [P] Escribir `tests/test_registro_busqueda.py`: `nueva_busqueda()` incrementa la generación en O(1) sin recorrer las listas; tras ella `tiene(i)`, `asentada(i)` y `en_borde(i)` son falsos para todo `i`; los valores de una generación anterior no se leen como válidos; el contador `examinadas` se reinicia por búsqueda y cuenta cada sala una sola vez {FR-030}
-- [ ] T008 [P] Escribir en `tests/test_terreno.py` las pruebas de carga del costo: ausente → 100; «entero ≥ 1»; un solo lado declara → vale para ambos; ambos distintos → `ErrorDatos` con salas y direcciones; menor que 1 o no entero → `ErrorDatos` con sala y dirección {FR-001, FR-002, FR-008}
+- [ ] T007 [P] Escribir `tests/test_registro_busqueda.py`: `nueva_busqueda()` incrementa la generación en O(1) sin recorrer las listas; tras ella `tiene(i)` y `asentada(i)` son falsos para todo `i`; los valores de una generación anterior no se leen como válidos; el contador `examinadas` se reinicia por búsqueda y suma 1 **solo la primera vez** que una sala recibe distancia en la generación, de modo que una sala de borde que después se asienta (al extender la búsqueda) no se cuenta dos veces (research R9) {FR-030}
+- [ ] T008 [P] Escribir en `tests/test_terreno.py` las pruebas de carga del costo: ausente → 100; «entero ≥ 1»; un solo lado declara → vale para ambos; ambos distintos → `ErrorDatos` con salas y direcciones; menor que 1 o no entero → `ErrorDatos` con sala y dirección; y cargar una cripta con costos y cazadores hace **exactamente la misma cantidad de solicitudes** que la misma cripta sin esos campos, medido con el contador de la fuente simulada {FR-001, FR-002, FR-008, FR-025}
 - [ ] T009 [P] Escribir en `tests/test_cazador.py` las pruebas de la ficha: `comportamiento: cazador` con `rango` «int ≥ 0»; ficha `cazador` sin `rango` válido → `ErrorDatos` con el id de la ficha, sin valor por defecto {FR-009}
 
 ### 2.3 Implementación de la fase
 
 - [ ] T010 [P] Implementar `MonticuloMin` en `src/estructuras_datos/monticulo.py` (research R1), sin `heapq`, con **eliminación perezosa** exacta:
   - **Almacenamiento**: una `list` de pares `(costo, indice)` organizada como montículo binario de mínimos (hijo izquierdo `2i+1`, derecho `2i+2`, padre `(i-1)//2`), con comparación por la tupla de D3.
-  - **Operaciones**: `insertar(costo, indice)` agrega al final y sube, O(log k); `extraer_minimo()` intercambia la raíz con el último, quita el último y baja, O(log k); `esta_vacio()` O(1); `vaciar()` reutiliza la lista.
+  - **Operaciones**: `insertar(costo, indice)` agrega al final y sube, O(log k); `extraer_minimo()` intercambia la raíz con el último, quita el último y baja, O(log k); `minimo()` devuelve la raíz sin extraerla, O(1), para que la búsqueda pueda **pausar** sin perder la entrada (research R5); `esta_vacio()` O(1); `vaciar()` reutiliza la lista.
   - **Sin «disminuir clave»**: el montículo no sabe nada de salas ni de obsolescencia. Cuando la búsqueda (T036) encuentra un costo menor para una sala, **inserta una entrada nueva** y deja la anterior en el montículo.
   - **Regla de obsolescencia** (la aplica el consumidor, T036, al extraer `(c, i)`): la entrada es obsoleta y se descarta sin examinar la sala si (a) la sala `i` ya está asentada en la generación actual, o (b) `c` es distinto de la distancia registrada de `i` en la generación actual (llegó una entrada más barata después). En otro caso se asienta.
   - **Cota de memoria**: cada inserción corresponde a una mejora de distancia; con a lo sumo 4 salidas por sala, el montículo nunca supera `1 + 4 · salas_asentadas` entradas, así que la memoria crece con la región examinada y no con la cripta.
   - Documentar en el docstring el porqué de la eliminación perezosa (evita llevar la posición de cada sala dentro del montículo) y su costo: hasta 4 entradas por sala en lugar de 1. {FR-014, FR-030}
-- [ ] T011 [P] Implementar `RegistroBusqueda` en `src/estructuras_datos/registro_busqueda.py` (research R2): listas de tamaño n indexadas por `Sala.indice` para `distancia`, `primer_paso`, `marca` (generación en que se registró la distancia), `asentada` (generación en que se asentó) y `borde` (generación en que se contó como borde); entero `generacion`; contador `examinadas`. Sin `dict`, `set` ni hash {FR-021, FR-030}
+- [ ] T011 [P] Implementar `RegistroBusqueda` en `src/estructuras_datos/registro_busqueda.py` (research R2): listas de tamaño n indexadas por `Sala.indice` para `distancia`, `primer_paso`, `marca` (generación en que se registró una distancia tentativa) y `asentada` (generación en que se asentó); entero `generacion`; contador `examinadas` que suma 1 la primera vez que una sala recibe `marca == generacion` (research R9). Sin `dict`, `set` ni hash {FR-021, FR-030}
 - [ ] T012 Agregar `Puerta.costo` («int ≥ 1», 100 por defecto), `Salida.sala_destino` y `Sala.indice` en `src/modelos/entidades.py` (data-model) {FR-001, FR-002}
 - [ ] T013 Asignar `Sala.indice` compacto en orden de carga en `Cripta.agregar_sala`, enlazar `Salida.sala_destino` y fusionar o validar el costo de ambos lados en `Cripta.enlazar_puertas` en `src/modelos/cripta.py` (depende de T012; research R3 y R4) {FR-001, FR-002, FR-008}
 - [ ] T014 Leer y validar `costo` en `_sala_desde_dict` de `src/servicios/cargador_cripta.py`, guardando si el lado lo declaró para que `enlazar_puertas` valide la simetría (depende de T013) {FR-001, FR-002, FR-008, FR-025}
@@ -217,7 +217,7 @@ comprobar el reloj con `max(1, costo*100 // velocidad)`.
 - [ ] T021 [US1] En `Partida._turno_enemigo` y `_mover_enemigo` de `src/modelos/partida.py`, programar la próxima acción con el costo real de la acción (100 al atacar o esperar, costo de la salida al moverse) en lugar de 100 fijo (research R8) {FR-003, FR-004, FR-005, FR-007}
 - [ ] T022 [US1] Verificar que `_cambiar_velocidad` en `src/modelos/partida.py` escala el tiempo restante sin depender del costo de origen; ajustar si T018 falla {FR-006}
 - [ ] T023 [US1] Agregar `costo` de la puerta al guardado binario y subir la versión del formato en `src/servicios/guardado.py`; un archivo de P1 se rechaza como incompatible (research R10) {FR-026, FR-029}
-- [ ] T024 [US1] Agregar en `tests/test_guardado.py` una prueba de guardar y cargar con costos y otra de rechazo del formato anterior {FR-026, FR-029}
+- [ ] T024 [US1] Agregar en `tests/test_guardado.py` una prueba de guardar y cargar con costos y otra de rechazo del formato anterior; y en `tests/test_cache_persistente.py`, un esqueleto persistido con una versión de cripta distinta no se usa y se vuelve a pedir (validación de versión existente) {FR-026, FR-029}
 
 **Checkpoint**: US1 funciona sola; la batería completa pasa.
 
@@ -246,7 +246,7 @@ exhaustiva contra la referencia teórica.
 - [ ] T028 [P] [US2] En `tests/test_cazador.py`: US2-3 / Apéndice B, `d > rango` → espera; US2-4, `d == rango` → se mueve {FR-012, FR-013}
 - [ ] T029 [P] [US2] En `tests/test_cazador.py`: US2-5 / Apéndice B, gana la ruta de menos costo aunque tenga más salas {FR-011, FR-013}
 - [ ] T030 [P] [US2] En `tests/test_cazador.py`: US2-6 / Apéndice B, dos vecinas con rutas mínimas → la de menor id; cuadrícula de costos uniformes con muchísimas rutas de igual costo que se separan y se vuelven a unir, donde la respuesta esperada está calculada a mano {FR-014}
-- [ ] T031 [P] [US2] En `tests/test_cazador.py`: dos salidas hacia la misma vecina → la abierta más barata y, si empatan, el orden N, S, E, O; la acción cuesta la salida elegida (US2-7) {FR-013, FR-015}
+- [ ] T031 [P] [US2] En `tests/test_cazador.py`: dos salidas hacia la misma vecina → la abierta más barata y, si empatan, el orden N, S, E, O; la acción cuesta la salida elegida (US2-7); y otro enemigo que ocupa una sala de la ruta no la bloquea: el cazador pasa igual (caso borde de la spec) {FR-013, FR-015, FR-017}
 - [ ] T032 [P] [US2] En `tests/test_cazador.py`: US2-8, no atraviesa puertas cerradas aunque exista la llave; US2-9, la decisión no depende de si el contenido de una sala está descargado {FR-016, FR-017}
 - [ ] T033 [P] [US2] En `tests/test_cazador.py`: US2-10, dormido no actúa aunque el jugador esté en rango; se activa al entrar el jugador, con primera acción de costo base 100; `rango` 0 → espera {FR-018, FR-012}
 - [ ] T034 [P] [US2] En `tests/test_determinismo_cazador.py`, pruebas de **determinismo total**:
@@ -260,16 +260,17 @@ exhaustiva contra la referencia teórica.
 
 - [ ] T036 [US2] Implementar `BuscadorRutas.distancias_desde(sala_origen, cota)` en `src/modelos/rutas.py` (research R5 y R9) con este algoritmo exacto:
   1. `registro.nueva_busqueda()`; `monticulo.vaciar()`; registrar `distancia[origen] = 0` e insertar `(0, origen.indice)`.
-  2. Mientras el montículo no esté vacío: extraer `(c, i)`. Si `c > cota`, **terminar** (todas las entradas restantes son ≥ c). Si la entrada es obsoleta según la regla de T010, descartarla y continuar. Si no, marcar `i` como asentada y sumar 1 a `examinadas`.
-  3. Para cada salida de la sala `i` en orden N, S, E, O (D2) con puerta abierta: `nc = c + puerta.costo`. Si `nc > cota`, contar la vecina como **borde** (una sola vez por búsqueda, con la marca `borde`) y no insertarla. Si la vecina no está asentada y (no tiene distancia en esta generación o `nc < distancia[vecina]`), registrar `distancia[vecina] = nc` e insertar `(nc, vecina.indice)`.
-  4. Al terminar, toda sala con distancia real ≤ cota está asentada con su distancia exacta. Nunca se lee la niebla de guerra ni el contenido de las salas. {FR-011, FR-016, FR-017, FR-030}
+  2. **Expandir hasta `cota`**: mientras el montículo no esté vacío, **consultar** `(c, i) = minimo()`. Si `c > cota`, **pausar**: la entrada queda en el montículo y se guarda `cota_alcanzada = cota`. Si no, extraerla; si es obsoleta según la regla de T010, descartarla y continuar; si no, marcar `i` como asentada.
+  3. Para cada salida de la sala `i` en orden N, S, E, O (D2) con puerta abierta: `nc = c + puerta.costo`. Si la vecina no está asentada y (no tiene distancia en esta generación o `nc < distancia[vecina]`), registrar `distancia[vecina] = nc` (si es la primera vez en la generación, sumar 1 a `examinadas`) e insertar `(nc, vecina.indice)`, **aunque `nc > cota`**: esas entradas forman el borde y permiten retomar la búsqueda después.
+  4. **`extender_hasta(cota_nueva)`**: si `cota_nueva > cota_alcanzada`, repetir el paso 2 con la misma generación y el mismo montículo; si no, no hace nada. Así, la decisión de un cazador de rango r solo examina salas a distancia ≤ r y su borde (FR-030), y un rango mayor retoma sin repetir trabajo (research R5).
+  5. En pausa, toda sala con distancia real ≤ `cota_alcanzada` está asentada con su distancia exacta. Nunca se lee la niebla de guerra ni el contenido de las salas. {FR-011, FR-016, FR-017, FR-030}
 - [ ] T037 [US2] Implementar `BuscadorRutas.primer_paso_desde(origen, objetivo, cota)` (modo individual) en `src/modelos/rutas.py` (depende de T036):
   - igual que T036, pero desde la sala del cazador; para cada vecina directa `v` del origen se fija `primer_paso[v] = id(v)` al relajarla;
   - al relajar `w` desde `x` con `nc == distancia[w]` (empate), se actualiza `primer_paso[w] = min(primer_paso[w], primer_paso[x])`; con `nc < distancia[w]`, se reemplaza por `primer_paso[x]`. Como todo costo es ≥ 1, todas las mejoras y empates de `w` llegan antes de que `w` se asiente;
   - se detiene al **asentar** el objetivo (su distancia ya es la mínima) o al superar la cota;
   - devuelve `d` y la vecina `primer_paso[objetivo]`; la salida concreta hacia esa vecina se elige con D4. {FR-013, FR-014, FR-015, FR-030}
-- [ ] T038 [US2] Implementar en `src/modelos/cazador.py` la **regla de decisión local** común a ambos modos: dada la sala `u` y una función `dist(v)` (registrada o ausente), recorrer las salidas de `u` en orden N, S, E, O, descartar puertas cerradas y vecinas sin distancia, y quedarse con la tupla mínima D4; devolver `ESPERAR` si no hay candidata o su total supera `rango` {FR-012, FR-013, FR-014, FR-015}
-- [ ] T039 [US2] Implementar `DecisorCazadores.decidir(cazador)` en `src/modelos/cazador.py` con modo `compartido` (una búsqueda T036 desde la sala del jugador con cota = máximo `rango` de los cazadores activos, y regla T038 para cada cazador) y modo `individual` (T037 por cazador con su propio rango), sin reutilización todavía (depende de T036, T037 y T038) {FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-022}
+- [ ] T038 [US2] Implementar en `src/modelos/cazador.py` la **regla de decisión local** común a ambos modos: dada la sala `u` y una función `dist(v)` (registrada o ausente), recorrer las salidas de `u` en orden N, S, E, O, descartar puertas cerradas y vecinas **no asentadas** (solo las distancias asentadas son exactas), y quedarse con la tupla mínima D4; devolver `ESPERAR` si no hay candidata o su total supera `rango` {FR-012, FR-013, FR-014, FR-015}
+- [ ] T039 [US2] Implementar `DecisorCazadores.decidir(cazador)` en `src/modelos/cazador.py` con modo `compartido` **incremental** (una búsqueda T036 desde la sala del jugador que, para cada cazador que decide, se lleva con `extender_hasta(rango del cazador)` y luego aplica la regla T038; research R5) y modo `individual` (T037 por cazador con su propio rango), sin reutilización todavía (depende de T036, T037 y T038) {FR-010, FR-011, FR-012, FR-013, FR-014, FR-015, FR-022}
 - [ ] T040 [US2] Integrar el comportamiento `CAZADOR` en `Partida._comportamiento` y `_turno_enemigo` de `src/modelos/partida.py` usando `DecisorCazadores` y el costo de la acción decidida (depende de T021 y T039) {FR-010, FR-012, FR-013, FR-018}
 - [ ] T041 [US2] Asegurar que el cazador usa activación, combate, muerte, `suelta` y efectos de P1 sin ramas especiales en `src/modelos/partida.py`; ajustar si T033 falla {FR-018}
 
@@ -301,14 +302,14 @@ recalcula y cuándo no.
 - [ ] T042 [P] [US3] En `tests/test_equivalencia_cazador.py`: US3-1 / Apéndice B (una puerta de la ruta se cierra entre turnos), US3-2 (se abre un atajo) y US3-3 (el jugador cambia de sala); en los tres la decisión es igual a `decision_referencia` y `busquedas` aumenta en 1 {FR-019, FR-020}
 - [ ] T043 [P] [US3] En `tests/test_reutilizacion_cazador.py`, **prueba de no recálculo ante puertas alejadas** (US3-4):
   - cripta sintética sembrada grande (≥ 2 000 salas) con el jugador y los cazadores en una esquina y rango pequeño;
-  - tras la primera decisión, abrir y cerrar 100 puertas alejadas (ambas salas fuera de la región examinada), incluido un cierre automático;
+  - tras la primera decisión, abrir y cerrar 100 puertas alejadas (ambas salas fuera de la región asentada), incluido un cierre automático;
   - **afirmar** que en las decisiones siguientes `busquedas` **no cambia**, `salas_examinadas_total` **no cambia**, `reutilizaciones` aumenta en cada decisión, y cada decisión es igual a `decision_referencia`;
   - el docstring reproduce la demostración de research R6: una puerta con ambos extremos sin asentar no participó en ninguna distancia registrada, y abrirla no puede crear un camino de costo ≤ cota. {FR-020, FR-021}
 - [ ] T044 [P] [US3] En `tests/test_reutilizacion_cazador.py`, **casos que sí deben recalcular y casos que no**:
-  - puerta con **una** sala dentro de la región examinada que se abre o se cierra → `busquedas` aumenta en 1;
-  - puerta entre una sala de borde y una sala sin examinar → **no** recalcula;
+  - puerta con **una** sala dentro de la región asentada que se abre o se cierra → `busquedas` aumenta en 1;
+  - puerta entre una sala de borde y una sala sin asentar → **no** recalcula;
   - más cambios de puerta que el umbral de la lista → recalcula sin revisar la lista;
-  - aparece un cazador con rango mayor que la cota guardada → recalcula; con rango menor o igual → no recalcula;
+  - aparece un cazador con rango mayor que la cota alcanzada → la búsqueda se **extiende** (`busquedas` no cambia y `salas_examinadas_total` aumenta solo con las salas nuevas); con rango menor o igual → no hay trabajo nuevo;
   - movimiento o muerte de otros enemigos y cambios de velocidad → `busquedas` **no** cambia (no alteran distancias). {FR-020, FR-021, FR-022}
 - [ ] T045 [P] [US3] En `tests/test_equivalencia_cazador.py`: US3-5, 30 cazadores con orden de cálculo distinto → misma decisión individual; US3-6, retroceso con pergamino → decisión según el estado restaurado e igual a la referencia {FR-020, FR-022, FR-028}
 - [ ] T046 [US3] En `tests/test_equivalencia_cazador.py`: prueba aleatoria sembrada de ≥ 10 000 decisiones en criptas sintéticas con puertas inestables, en modos compartido e individual **con la reutilización activada**, con cero diferencias frente a `decision_referencia` comparando la tupla completa; se reportan además `busquedas` y `reutilizaciones` para mostrar que la reutilización realmente ocurrió (depende de T025; SC-002) {FR-019, FR-020, FR-021, FR-022}
@@ -320,7 +321,7 @@ recalcula y cuándo no.
 - [ ] T049 [US3] Implementar la reutilización en `src/modelos/cazador.py` con esta regla exacta (research R6):
   - guardar con el cálculo: sala del jugador, cota, `generacion_cache` y una lista corta de puertas cambiadas desde entonces (con umbral fijo, por ejemplo 32);
   - `notificar_puerta(puerta)`: si la lista no superó el umbral, agregar la puerta; si lo superó, marcar «recalcular»;
-  - antes de decidir, **reutilizar** solo si: (1) la sala del jugador es la misma, (2) la cota pedida es ≤ la guardada, (3) no se marcó «recalcular» y (4) toda puerta de la lista tiene sus dos salas con `asentada[i] != generacion_cache`; si se reutiliza, vaciar la lista;
+  - antes de decidir, **reutilizar** solo si: (1) la sala del jugador es la misma, (2) no se marcó «recalcular» y (3) toda puerta de la lista tiene sus dos salas con `asentada[i] != generacion_cache`; si además la cota pedida es mayor que la alcanzada, se usa `extender_hasta` en lugar de recalcular; si se reutiliza, vaciar la lista;
   - en cualquier otro caso, recalcular con T036 y reemplazar lo guardado;
   - sin `dict`, `set` ni estructuras equivalentes de biblioteca (vigilado por T005). {FR-019, FR-020, FR-021}
 - [ ] T050 [US3] Verificar que el decisor, el registro, los contadores y `version_puertas` no entran al historial de retroceso, al guardado ni a `partida.log` (`src/modelos/partida.py`, `src/servicios/guardado.py`) {FR-021, FR-028, FR-029}
@@ -358,15 +359,15 @@ recalcula y cuándo no.
 
 ### Tests for User Story 5 (escribir primero) ⚠️
 
-- [ ] T055 [P] [US5] En `tests/test_rendimiento_cazador.py`: SC-004, mismo número de salas examinadas con cripta ×1 y ×10 y la misma región en rango, y ninguna sala examinada más allá del rango salvo el borde {FR-030}
-- [ ] T056 [P] [US5] En `tests/test_banco_pruebas.py`: misma semilla → mismas criptas sintéticas y mismos `examinadas_media` y `reutilizaciones`; `--bench` no instancia la vista {FR-035}
+- [ ] T055 [P] [US5] En `tests/test_rendimiento_cazador.py`: SC-004, en **ambos modos**: mismo número de salas examinadas con cripta ×1 y ×10 y la misma región en rango, y ninguna sala examinada más allá del rango salvo el borde; y con un cazador de rango 100 junto a otro de rango 2000, la primera decisión del de rango 100 examina solo salas a distancia ≤ 100 y su borde (hallazgo H1) {FR-030}
+- [ ] T056 [P] [US5] En `tests/test_banco_pruebas.py`: misma semilla → mismas criptas sintéticas y mismos `examinadas_media` y `reutilizaciones`; `--bench` no instancia la vista; y la salida contiene las secciones de los cuatro grupos de la US5 (decisión del cazador, reutilización, revisión de P1 y determinismo por semilla), verificado buscando sus nombres de escenario en el texto {FR-032, FR-033, FR-034, FR-035, SC-006}
 
 ### Implementation for User Story 5
 
 - [ ] T057 [US5] Conectar `src/servicios/banco_pruebas.py` con el generador de T001 (sin duplicarlo) y agregar la secuencia sembrada de cambios de puertas que usan los escenarios de puertas estables e inestables {FR-035}
 - [ ] T058 [US5] Agregar a `src/servicios/banco_pruebas.py` los escenarios de decisión del cazador (1 frente a 30, rango pequeño frente a grande, compartido frente a individual) y montículo frente a lista lineal (depende de T057) {FR-032}
 - [ ] T059 [US5] Agregar el escenario de reutilización frente a recalcular siempre, con puertas estables e inestables, reportando `busquedas` y `reutilizaciones` (depende de T057 y T049). Estructuras del escenario (G5): las puertas candidatas a cambiar se eligen por **número de conexión** desde una `list` de números sembrada; para clasificar una puerta como alejada o cercana se consulta la lista indexada `asentada` del `RegistroBusqueda` por `Sala.indice` de sus dos salas (O(1) cada una); el registro de puertas ya cambiadas en una ronda es una `list` de booleanos de tamaño `2n` indexada por número de conexión, que se reinicia con una marca de generación. Sin `set` ni `dict` {FR-033}
-- [ ] T060 [US5] Agregar el escenario de escala ×1 frente a ×10 y el de ciclo de eventos con ≥ 30 cazadores, reportando `ms_max` (depende de T057; SC-003 y SC-004) {FR-030, FR-031}
+- [ ] T060 [US5] Agregar el escenario de escala ×1 frente a ×10 y el de ciclo de eventos con ≥ 30 cazadores, reportando `ms_max` junto a «CUMPLE» o «NO CUMPLE» según el límite de 20 ms (depende de T057; SC-003 y SC-004) {FR-030, FR-031}
 - [ ] T061 [US5] Repetir las mediciones de agenda e historial de retroceso de P1 con cazadores y costos variables en `src/servicios/banco_pruebas.py` (P2 §5.6) {FR-034}
 - [ ] T062 [US5] Ajustar `formatear` en `src/servicios/banco_pruebas.py` para imprimir los campos del contrato de `--bench` {FR-032, FR-033, FR-035}
 
@@ -376,7 +377,7 @@ recalcula y cuándo no.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T063 Ejecutar `python main.py --bench`, elegir el modo por defecto (compartido o individual) según la medición y fijarlo en `src/modelos/cazador.py` {FR-031, FR-032}
+- [ ] T063 Ejecutar `python main.py --bench`, comparar compartido incremental, individual y recalcular siempre, elegir el modo por defecto según la medición y fijarlo en `src/modelos/cazador.py` {FR-031, FR-032}
 - [ ] T064 Escribir en `DECISIONES.md` las secciones de P2 §5.1 y §5.2 con la estructura de P1 §8, enlazando a [spec.md](spec.md) y [plan.md](plan.md), e indicando si la decisión final coincide con el plan y qué medición motivó un cambio {FR-030, FR-031, FR-032, FR-033}
 - [ ] T065 Escribir en `DECISIONES.md` la parte de P2 §5.6 correspondiente a esta capacidad (agenda e historial con la carga nueva: antes y después, o datos que muestran que siguen siendo adecuados) {FR-034}
 - [ ] T066 Actualizar `README.md` con cómo ejecutar las pruebas de aceptación de esta capacidad (ver [quickstart.md](quickstart.md)), incluidos `--bench` y los criterios que se verifican {FR-031, FR-035, SC-001}
