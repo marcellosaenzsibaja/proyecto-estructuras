@@ -32,7 +32,7 @@ validan con `--bench` durante la implementación (constitución, Principio VII).
 - **Decisión**: cada sala recibe al cargar la cripta un **índice compacto** `0..n-1`, según el orden
   de llegada de las páginas del esqueleto, que es determinista. Un `RegistroBusqueda`
   (`src/estructuras_datos/registro_busqueda.py`) guarda listas de tamaño n indexadas por ese
-  índice: `distancia`, `primer_paso`, `marca` y `cerrada`. Cada búsqueda incrementa un número de
+  índice: `distancia`, `primer_paso`, `marca`, `asentada` y `borde`. Cada búsqueda incrementa un número de
   **generación**, y una posición solo es válida si `marca[i] == generación`. Así, empezar una
   búsqueda nueva cuesta O(1) y no se limpian n posiciones.
 - **Justificación**: cumple FR-030, porque una búsqueda solo toca las salas que examina. No usa

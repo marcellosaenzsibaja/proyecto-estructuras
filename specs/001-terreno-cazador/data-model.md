@@ -53,8 +53,9 @@ cumple, `ErrorDatos` con sala y dirección (FR-008).
 
 ### RegistroBusqueda (`src/estructuras_datos/registro_busqueda.py`) — R2
 
-- Listas de tamaño n indexadas por `Sala.indice`: `distancia`, `primer_paso`, `marca`, `cerrada`
-  (extraída).
+- Listas de tamaño n indexadas por `Sala.indice`: `distancia`, `primer_paso`, `marca` (generación
+  en que se registró la distancia), `asentada` (generación en que se asentó) y `borde` (generación
+  en que se contó como borde).
 - `generacion: int`. `nueva_busqueda()` incrementa la generación en O(1). `tiene(i)` es
   `marca[i] == generacion`.
 - Contador `examinadas` de la última búsqueda (R9).
