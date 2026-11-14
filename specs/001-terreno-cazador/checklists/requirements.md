@@ -39,3 +39,6 @@
 - Tres decisiones no vienen literalmente del enunciado y conviene confirmarlas en
   `/speckit-clarify`: FR-008 y FR-009 (qué hacer con datos inválidos), FR-015 (varias salidas hacia
   la misma vecina) y FR-021 (la información reutilizada no es estado del juego).
+- FR-021 cita la prohibición de `dict` y `set` del Principio I de la constitución a pedido del
+  grupo. Es una restricción, no una elección de estructura, así que no contradice la regla de no
+  nombrar estructuras en `spec.md`.

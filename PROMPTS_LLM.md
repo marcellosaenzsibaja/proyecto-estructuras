@@ -97,3 +97,9 @@
 - Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-specify`)
 - Prompt: "Sí, paso 2". La descripción de la capacidad para `/speckit-specify` la redactó el asistente a partir de P2 §3.1, §3.2, §5.1, §5.2, §6.1, §6.3 y el Apéndice B, y quedó copiada textualmente en el campo **Input** de `specs/001-terreno-cazador/spec.md`.
 - Uso de la respuesta: generar `specs/001-terreno-cazador/spec.md` y su checklist de calidad en la rama `001-terreno-cazador`; el grupo revisa la especificación antes de `/speckit-clarify`.
+
+## Entrada 17
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic)
+- Prompt: "En FR-021 ten presente la restriccion de la constitucion y ademas la prohibicion de utilizar dict y solamente seria eso"
+- Uso de la respuesta: ajustar FR-021 de `specs/001-terreno-cazador/spec.md` para que la información reutilizada en los cálculos del cazador cumpla el Principio I (sin `dict` ni `set`).
