@@ -281,7 +281,7 @@ exhaustiva contra la referencia teórica.
 ## Phase 5: User Story 3 - Las decisiones siguen siendo correctas cuando el mapa cambia (Priority: P2)
 
 **Goal**: equivalencia observable con el cálculo desde cero, con una reutilización **demostrada**:
-ante cambios de puertas alejados de la región examinada, el sistema no recalcula nada.
+ante cambios de puertas alejados de la región asentada, el sistema no recalcula nada.
 
 **Independent Test**: partidas sintéticas largas con puertas que cambian y muchos cazadores,
 comparando cada decisión con la referencia teórica (T025) y verificando con contadores cuándo se
@@ -289,10 +289,10 @@ recalcula y cuándo no.
 
 ### Definiciones usadas por las pruebas y el código
 
-- **Región examinada** del último cálculo: las salas **asentadas** en la generación con la que se
+- **Región asentada** del último cálculo: las salas **asentadas** en la generación con la que se
   calculó (`asentada[i] == generacion_cache`). Las salas de borde no forman parte de ella, porque su
   distancia real es mayor que la cota.
-- **Puerta alejada**: una puerta cuyas dos salas están fuera de la región examinada.
+- **Puerta alejada**: una puerta cuyas dos salas están fuera de la región asentada. (No se confunde con el contador `examinadas`, que incluye también el borde; research R9.)
 - **Contadores de instrumentación** de `DecisorCazadores` (infraestructura, no estado del juego):
   `busquedas` (búsquedas T036/T037 ejecutadas), `reutilizaciones` (decisiones resueltas con el
   cálculo guardado), `salas_examinadas_total` (suma de `examinadas` de todas las búsquedas).
