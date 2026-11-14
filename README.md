@@ -7,6 +7,17 @@ Proyecto de Estructuras de Datos II, II Ciclo 2026.
 - Python 3.11 o superior
 - Dependencias: `requests`
 
+## Desarrollo dirigido por especificaciones (segunda parte)
+
+- Herramienta: GitHub spec-kit (`specify-cli`), versión **1.4.1.dev0**
+  (todo el grupo debe usar la misma).
+- Agente de programación: **Claude Code**.
+- Inicialización usada: `specify init --here --integration claude --script ps`.
+- Comandos del flujo (en esta versión se escriben con guion):
+  `/speckit-constitution`, `/speckit-specify`, `/speckit-clarify`,
+  `/speckit-plan`, `/speckit-tasks`, `/speckit-analyze`, `/speckit-implement`.
+- Artefactos: `.specify/memory/constitution.md` y `specs/<NNN-capacidad>/`.
+
 ## Instalación
 
 ```
