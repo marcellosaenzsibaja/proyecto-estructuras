@@ -142,13 +142,11 @@ cierran según la semilla (FR-035).
 - La equivalencia descansa en que los costos son simétricos (FR-002). Si el enunciado cambia eso,
   el cálculo compartido desde el jugador deja de ser válido.
 
-## Revisión pendiente para el grupo
+## Revisión del grupo
 
-- **R4**: si una salida declara `costo` y su pareja no, se usa el declarado; si ambas lo declaran
-  distinto, es error de datos. El enunciado no cubre este caso. Confirmen o ajusten la
-  especificación antes de implementar.
-- **R5 y R6**: la estrategia compartida con reutilización es preliminar; la decisión final sale de
-  `--bench` y se documenta en `DECISIONES.md`.
+- **R4**: confirmado por el grupo e incorporado a FR-002 de la especificación.
+- **R5 y R6**: revisados. La estrategia compartida con reutilización sigue siendo preliminar; la
+  decisión final sale de `--bench` y se documenta en `DECISIONES.md`.
 
 ## Complexity Tracking
 

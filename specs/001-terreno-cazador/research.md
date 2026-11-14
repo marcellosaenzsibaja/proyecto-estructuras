@@ -62,8 +62,8 @@ validan con `--bench` durante la implementación (constitución, Principio VII).
   información.
 - **Alternativas**: un costo por `Salida` y comprobar la simetría en cada movimiento, con riesgo de
   divergencia.
-- **Nota para el grupo**: el caso «un solo lado declara el costo» no está en el enunciado; se
-  resolvió por coherencia con FR-002. Ver «Revisión pendiente» en el plan.
+- **Nota**: el caso «un solo lado declara el costo» no está en el enunciado. El grupo confirmó
+  esta regla y se incorporó a FR-002 de la especificación.
 
 ## R5. Cálculo compartido frente a individual (P2 §5.1) — preliminar, se valida con `--bench`
 
