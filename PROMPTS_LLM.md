@@ -109,3 +109,9 @@
 - Herramienta: Claude Code (Anthropic)
 - Prompt: "A fr-021 a;adele al final ; estructuras equivalentes de biblioteca como índice, caché o registro para terminar de aclarar el tema de estructuras"
 - Uso de la respuesta: completar FR-021 de `specs/001-terreno-cazador/spec.md` con la prohibición de estructuras equivalentes de biblioteca.
+
+## Entrada 19
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-clarify`)
+- Prompt: "Sí, clarify"; respuestas a las preguntas 1 a 4: "A (recomendada)", "A (recomendada)", "A (recomendada)", "b"
+- Uso de la respuesta: resolver 4 ambigüedades de `specs/001-terreno-cazador/spec.md` (activación del cazador, datos inválidos, varias salidas hacia la misma vecina y verificación por conteo del costo acotado por el rango).
