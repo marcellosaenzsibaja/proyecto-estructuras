@@ -121,3 +121,15 @@
 - Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-plan`)
 - Prompt: "Sí, plan"; respuestas a las preguntas de estructuras: "A: Montículo binario (Recommended)" y "A: Arreglos por índice (Recommended)"; revisión: "ok las revisiones estan bien"
 - Uso de la respuesta: generar el plan de `specs/001-terreno-cazador/` (plan.md, research.md, data-model.md, quickstart.md y contrato) e incorporar a FR-002 la regla del costo declarado por un solo lado.
+
+## Entrada 21
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-tasks`)
+- Prompt: "Sí, ambas"
+- Uso de la respuesta: generar `specs/001-terreno-cazador/tasks.md` con las tareas trazadas a los requisitos.
+
+## Entrada 22
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic)
+- Prompt: "okey en la fase 2 quiero lo detalles mucho mas enfasis en primero la prohibicion de las estructuras de conveniencia y el mecanismo exacto de elimnacion perezosa de entradas obsoletas al monticulo Fase 4 detallar mas para hacerlo 100%determinista concida correctamente con la referencia teorica (esta tambien para la fase 5) fase 5 que demuestre que ante cambios de puertas alejadas a la region examinada el sistema no recalcula nada en t003 detalla mucho mas la generacion correca de criptas solo es"; "solo eso era lo del final"; "define mejor g4 y g1 su estructura ,evita set en los dfs mejor utiliza listas indexadas en t059"; "ademas revisa que estos no rompan la constitucion"; "La opcion A,ademas ;ademas a;ade la trazabilidad de t004 t066 y t068y haz la verificacion superficial de plan"
+- Uso de la respuesta: detallar y corregir `tasks.md` y el plan de 001 (prohibición de estructuras de conveniencia, eliminación perezosa, determinismo, referencia teórica, no recálculo, generación de criptas como texto JSON con listas indexadas, trazabilidad y verificación contra la constitución).
