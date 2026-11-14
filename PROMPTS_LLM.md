@@ -103,3 +103,9 @@
 - Herramienta: Claude Code (Anthropic)
 - Prompt: "En FR-021 ten presente la restriccion de la constitucion y ademas la prohibicion de utilizar dict y solamente seria eso"
 - Uso de la respuesta: ajustar FR-021 de `specs/001-terreno-cazador/spec.md` para que la información reutilizada en los cálculos del cazador cumpla el Principio I (sin `dict` ni `set`).
+
+## Entrada 18
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic)
+- Prompt: "A fr-021 a;adele al final ; estructuras equivalentes de biblioteca como índice, caché o registro para terminar de aclarar el tema de estructuras"
+- Uso de la respuesta: completar FR-021 de `specs/001-terreno-cazador/spec.md` con la prohibición de estructuras equivalentes de biblioteca.
