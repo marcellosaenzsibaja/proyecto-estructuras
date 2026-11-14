@@ -85,6 +85,9 @@ def _salida_hacia(sala, id_vecina: int):
 
 class DecisorCazadores:
 
+    # Modo por defecto (T063): compartido incremental con reutilización. En --bench, con 30
+    # cazadores, el ciclo cuesta 0,135 ms por cazador frente a ~1,1 ms del individual
+    # (DECISIONES.md, P2 5.1). El individual solo gana con un único cazador de rango grande.
     def __init__(self, cripta, modo: str = COMPARTIDO, reutilizar: bool = True):
         if modo not in (COMPARTIDO, INDIVIDUAL):
             raise ValueError(f'Modo de decisión desconocido: {modo!r}')

@@ -679,3 +679,232 @@ de búsqueda: `TablaHash` (propia) cumple ese rol en `ProveedorRed`,
 caché. Las fichas de prueba en `tests/utilidades.py` sí usan `dict`/`set`
 libremente porque son datos de prueba, no la estructura que resuelve un
 problema evaluado.
+
+
+---
+
+# Segunda parte — Terreno y cazador
+
+Secciones de los problemas de P2 §5 que atiende la capacidad
+[001-terreno-cazador](specs/001-terreno-cazador/spec.md). Cada una sigue la
+estructura de P1 §8 y enlaza a su especificación y a su plan
+([plan.md](specs/001-terreno-cazador/plan.md),
+[research.md](specs/001-terreno-cazador/research.md)). Las mediciones son de
+una corrida de `python main.py --bench` en el equipo local (Windows, Python
+3.14). Los tiempos varían entre máquinas; los conteos de salas examinadas,
+búsquedas y reutilizaciones son deterministas por semilla.
+
+---
+
+## P2 5.1 La ruta más barata del cazador
+
+**Problema.** En cada turno, un cazador necesita el costo mínimo `d` desde su
+sala hasta la del jugador por puertas abiertas en ese instante, y dar un paso
+por una ruta de costo `d` con el desempate de la vecina de menor id (FR-011 a
+FR-015). Los costos no son uniformes, así que contar salas no sirve. En la
+prueba de ciclo de `--bench` (30 cazadores, 150 acciones del jugador) hubo
+5280 decisiones de cazador: unas 35 por acción del jugador. Es la operación
+más frecuente de la capacidad.
+
+**Alternativas consideradas.**
+1. *Escoger la sala pendiente más barata con una lista y búsqueda lineal*,
+   O(k) por extracción. Descartada por medición: con 10 000 operaciones tarda
+   109 ms, frente a 9,8 ms del montículo (escenario `cola_*`).
+2. *Una búsqueda individual desde cada cazador*, acotada por su rango, que
+   propaga el primer paso de menor id (la estrategia de explorar hacia afuera
+   y cortar la rama que supera el rango que propuso el grupo). Implementada y
+   medida como alternativa.
+3. *Una búsqueda compartida desde el jugador, siempre hasta el mayor rango
+   activo.* Descartada en `/speckit-analyze` (hallazgo H1) antes de
+   implementarla: hace pagar a un cazador de rango pequeño la región del
+   cazador de rango mayor, lo que contradice FR-030.
+4. *Búsqueda compartida incremental* (decisión final, ver abajo).
+
+**Decisión.** Estructuras confirmadas por el grupo en el plan:
+- `MonticuloMin` (`src/estructuras_datos/monticulo.py`): montículo binario de
+  mínimos propio con **eliminación perezosa**. No hay «disminuir clave»: si
+  una sala mejora, se inserta otra entrada, y al extraer se descarta la
+  entrada de una sala ya asentada o cuyo costo no coincide con la distancia
+  registrada. `minimo()` permite pausar sin extraer.
+- `RegistroBusqueda` (`src/estructuras_datos/registro_busqueda.py`): listas
+  indexadas por un índice compacto de sala con marca de generación. Empezar
+  una búsqueda cuesta O(1) y no se limpia ninguna posición, así que solo se
+  tocan las salas examinadas (FR-030). Sin `dict`, `set` ni hash.
+- `BuscadorRutas` (`src/modelos/rutas.py`) y `DecisorCazadores`
+  (`src/modelos/cazador.py`). **Modo por defecto: compartido incremental.**
+  Una búsqueda desde la sala del jugador se expande solo hasta el rango del
+  cazador que decide y queda en pausa (`extender_hasta`). Un cazador de rango
+  mayor la retoma sin repetir trabajo. Cada cazador decide en O(4) con la
+  clave D4 `(costo + dist(v), id(v), costo, dirección)`. Por la simetría de
+  los costos (FR-002), `dist(v)` hasta el jugador es la misma distancia que
+  calcula la búsqueda desde el jugador.
+
+¿Coincide con el `plan.md` original? En parte. El plan original decía
+«compartido desde el jugador hasta el mayor rango». `/speckit-analyze`
+(hallazgo H1) lo cambió a «incremental» antes de escribir código, y la
+medición final confirma ese plan corregido: no hubo cambios durante la
+implementación.
+
+**Análisis de complejidad.** Con `R` salas asentadas y hasta 4 salidas por
+sala: búsqueda O(R log R), con a lo sumo `1 + 4R` entradas en el montículo
+por la eliminación perezosa. Decisión local: O(4). Extender la búsqueda solo
+procesa las salas nuevas. La memoria por búsqueda es proporcional a la región
+examinada; las listas del registro, de tamaño n, se crean una sola vez por
+cripta.
+
+**Evidencia empírica** (`[cazador_decision]`, `[escala]`, `[cola_prioridad]`;
+cripta sintética de 1600 salas):
+
+| Escenario | Salas examinadas por decisión | ms por decisión |
+|---|---|---|
+| 1 cazador, rango 300, compartido / individual | 51 / 40 | 0,10 / 0,07 |
+| 1 cazador, rango 5000, compartido / individual | 1600 / 636 | 4,27 / 1,44 |
+| 30 cazadores, rango 5000, compartido sin reutilizar / individual | 1600 / 495 | 4,22 / 1,09 |
+| **30 cazadores, compartido incremental con reutilización (ciclo)** | **53** | **0,135** |
+| Escala x1 / x10, misma región en rango (compartido) | 40 / 40 | 0,057 / 0,051 |
+| Escala x1 / x10 (individual) | 5 / 5 | 0,004 / 0,004 |
+
+- **SC-004 (FR-030):** con la cripta 10 veces más grande y la misma región
+  dentro del rango, el número de salas examinadas es exactamente el mismo
+  (`tests/test_rendimiento_cazador.py`, en ambos modos y con rangos
+  mezclados).
+- **Correctitud:** 0 diferencias frente a la referencia teórica
+  (`tests/referencia_cazador.py`) en más de 50 000 decisiones exhaustivas y
+  10 400 decisiones aleatorias con puertas inestables.
+
+**Por qué compartido incremental y no individual.** Para *un* cazador con
+rango grande el individual examina menos salas (636 frente a 1600), porque
+corta al asentar al jugador. Pero en la carga del enunciado, con decenas de
+cazadores persiguiendo al mismo objetivo, la búsqueda compartida se hace una
+vez y se reutiliza (29 de 30 decisiones reutilizan en el escenario de ciclo),
+y el costo medio por cazador baja a 0,135 ms, unas 8 veces menos que el
+individual.
+
+**Límites conocidos.** Si hubiera uno o dos cazadores con rango muy grande en
+una cripta enorme, el modo individual sería mejor, y se puede elegir con
+`DecisorCazadores(..., modo=INDIVIDUAL)`. El modo individual no reutiliza
+cálculos entre turnos. Todo el diseño compartido descansa en la simetría de
+los costos (FR-002): si el enunciado la eliminara, habría que volver al modo
+individual.
+
+---
+
+## P2 5.2 Rutas que dejan de ser válidas
+
+**Problema.** Entre dos turnos de un cazador pueden abrirse o cerrarse
+puertas, el jugador puede moverse y otros actores pueden moverse o morir. La
+decisión debe ser siempre la de un cálculo desde cero (FR-019, FR-020), y
+reutilizar solo vale si se demuestra que no cambia la respuesta.
+
+**Alternativas consideradas.**
+1. *Recalcular siempre.* Correcta por definición; es la alternativa medida.
+2. *Invalidar todo ante cualquier cambio de puerta.* Simple, pero las
+   puertas con cierre automático lejos de los cazadores invalidarían cálculos
+   que siguen siendo válidos.
+3. *Reutilización con invalidación selectiva* (decisión).
+
+**Decisión** (research R6, `src/modelos/cazador.py`). Todo cambio de puerta
+pasa por un único punto, `Partida._poner_cerrada` (abrir con llave, cierre
+automático y deshacer con pergamino), que incrementa `version_puertas`
+(nunca se revierte) y avisa al decisor. La búsqueda compartida se reutiliza
+solo si:
+1. el jugador sigue en la misma sala;
+2. no se superó el umbral de 32 puertas cambiadas desde el cálculo;
+3. todas las puertas cambiadas tienen sus dos salas fuera de la región
+   asentada (`Puerta.extremos`).
+
+Si se cumplen y el cazador pide un rango mayor, la búsqueda se *extiende*
+en lugar de recalcularse.
+
+**Demostración de la condición 3.** La búsqueda solo usó salidas de salas
+asentadas. Una puerta con ambos extremos sin asentar no participó en ninguna
+distancia asentada. Abrirla no crea un camino de costo ≤ la cota alcanzada,
+porque para usarla habría que llegar a un extremo con costo ≤ esa cota, y ese
+extremo estaría asentado. Cerrarla no quita ningún camino usado.
+
+| Evento | ¿Invalida? |
+|---|---|
+| El jugador cambia de sala | Sí (otra sala de origen) |
+| Puerta con alguna sala en la región asentada | Sí |
+| Puerta con las dos salas fuera de la región (incluido el borde) | No |
+| Más de 32 puertas cambiadas sin decidir | Sí (no se revisa la lista) |
+| Cazador con rango mayor | No: extiende |
+| Otros actores se mueven o mueren; cambios de velocidad | No: no cambian distancias |
+| Retroceso con pergamino | Según lo restaurado: la sala del jugador o las puertas (que avisan al deshacer) |
+
+¿Coincide con el `plan.md`? Sí, con el ajuste de `/speckit-analyze`
+(«extender en lugar de recalcular» para rangos mayores).
+
+**Análisis de complejidad.** Comprobar la reutilización: O(c), con c ≤ 32
+puertas cambiadas. Reutilizar: O(1) más la decisión local O(4).
+
+**Evidencia empírica** (`[reutilizacion]`, 1600 salas, 30 cazadores, 60
+rondas):
+
+| Escenario | Búsquedas | Reutilizaciones | ms por ronda (media / máx.) |
+|---|---|---|---|
+| Puertas estables, reutilizar | 31 | 1423 | 0,24 / 0,62 |
+| Puertas estables, recalcular siempre | 1454 | 0 | 7,64 / 11,36 |
+| Puertas inestables (cerca del jugador), reutilizar | 60 | 1533 | 0,45 / 0,76 |
+| Puertas inestables, recalcular siempre | 1593 | 0 | 9,69 / 16,92 |
+
+- **No recálculo demostrado:** en una cripta de 2000 salas, 100 cambios de
+  puertas alejadas no aumentan ni las búsquedas ni las salas examinadas
+  (`tests/test_reutilizacion_cazador.py`), y cada decisión coincide con la
+  referencia.
+- **Ciclo de eventos (FR-031, SC-003):** con 30 cazadores activos, el peor
+  ciclo entre dos decisiones del jugador fue de **2,7 ms (CUMPLE el límite de
+  20 ms)**, con 133 búsquedas y 5147 reutilizaciones. Se toma el mínimo de 3
+  repeticiones por acción para descartar interrupciones del sistema operativo;
+  el peor valor bruto observado en esa corrida fue de 3,8 ms. Durante el
+  desarrollo se vieron picos brutos aislados de 20 a 100 ms en ciclos que,
+  repetidos, tardan unos 3 ms; aparecían incluso con el recolector de basura
+  desactivado, por lo que se atribuyen al sistema operativo y no al código.
+
+**Límites conocidos.** Con puertas que cambian en cada evento justo al lado
+del jugador, la condición 3 casi nunca se cumple: el sistema recalcula, pero
+el costo de comprobar es despreciable (escenario inestable). El umbral de 32
+es un valor elegido, no medido con precisión; por encima de él se recalcula
+sin revisar la lista.
+
+---
+
+## P2 5.6 Revisión de decisiones de la primera parte (lo que toca 001)
+
+**Agenda de eventos (P1 §4.1): sigue siendo adecuada.** Con eventos de 30
+cazadores, intervalos variables por costo (1 a 300) y velocidades de 70 a 200
+(`[revision_p1]`), 2000 extracciones con reinserción tardan 4,6 ms y 20 000
+tardan 45,6 ms: unos 0,0023 ms por operación, el mismo orden que en P1
+(0,0028 ms por extracción en `[agenda]`). El crecimiento es O(log n). No se
+cambió.
+
+**Historial de retroceso (P1 §4.6): sigue siendo adecuado.** Con 30 cazadores
+persiguiendo, 50 acciones del jugador tardan 52,5 ms en total (1,05 ms por
+acción, incluida toda la simulación) y deshacer los 5 intervalos tarda
+0,43 ms. Los cazadores agregan deltas (cambios de sala y eventos), pero
+siguen siendo pocos por intervalo. No se cambió.
+
+**Decisiones de P1 que sí cambiaron** (antes y después):
+
+| Qué | Antes (P1) | Después (P2) | Por qué |
+|---|---|---|---|
+| Costo de la acción del enemigo | Siempre 100 al programar su próxima acción | 100 al atacar o esperar; costo de la salida al moverse | FR-003 y FR-005 (research R8) |
+| Formato binario de guardado | Versión 1, sin costo | Versión 2: costo de cada puerta e instante del próximo turno de cada enemigo; un archivo v1 se rechaza | FR-026, FR-029 |
+| Restauración de una partida | Cada cara de una puerta quedaba como un objeto distinto; los enemigos se reprogramaban a 100 desde la carga | Las puertas se vuelven a unir con `Cripta.enlazar_puertas` y cada enemigo conserva el instante de su próximo turno | Al cerrar una cara, la otra seguía abierta; la partida cargada no continuaba igual (FR-029) |
+| Rastreador con dos salidas hacia la misma vecina | Costo fijo de 100 | Salida abierta más barata; empate por N, S, E, O | FR-015 |
+
+Las tres últimas filas son defectos de P1 que se descubrieron al implementar
+001; se corrigieron con pruebas (`tests/test_guardado.py`).
+
+---
+
+## Nota transversal de la segunda parte: cumplimiento del Principio I
+
+`tests/test_restricciones.py` verifica automáticamente con `ast` que los
+módulos de la capacidad (montículo, registro, rutas, decisor, generador,
+fuente en memoria, referencia teórica y utilidades de prueba) no importan
+`heapq`, `bisect`, `collections`, `queue`, `networkx` ni `functools.lru_cache`,
+ni usan diccionarios, conjuntos, `sorted` o `.sort`. El generador de criptas
+escribe texto JSON y solo se leen los diccionarios que devuelve `json.loads`.
+`src/servicios/banco_cazador.py` usa diccionarios únicamente para las filas
+del reporte de `--bench`, que no resuelven ningún problema evaluado.

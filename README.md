@@ -129,11 +129,49 @@ caché de fichas, la recuperación de fichas en memoria, el inventario, el
 historial de retroceso, el ordenamiento y el guardado/carga. Los resultados
 de referencia y su análisis están en `DECISIONES.md`.
 
+En la segunda parte agrega, con criptas sintéticas deterministas por semilla,
+las secciones del terreno y el cazador (`specs/001-terreno-cazador`):
+
+| Sección | Qué compara |
+| --- | --- |
+| `[cazador_decision]` | 1 frente a 30 cazadores, rango pequeño frente a grande, compartido frente a individual |
+| `[cola_prioridad]` | Montículo binario propio frente a lista con búsqueda lineal |
+| `[reutilizacion]` | Reutilizar frente a recalcular siempre, con puertas estables e inestables |
+| `[escala]` | Salas examinadas con una cripta x1 y x10 con la misma región dentro del rango |
+| `[ciclo_eventos]` | Peor ciclo entre dos decisiones del jugador con 30 cazadores; `CUMPLE` si es menor que 20 ms |
+| `[revision_p1]` | Agenda e historial de retroceso de P1 con la carga nueva |
+| `[determinismo]` | Misma semilla, mismas criptas sintéticas |
+
 ## Pruebas
 
 ```
 python -m unittest discover -s tests
 ```
+
+También se pueden ejecutar con `pytest`:
+
+```
+python -m pytest -q
+```
+
+### Pruebas de aceptación de la segunda parte
+
+Cada prueba cita en su nombre o en su docstring el requisito que verifica
+(`FR-NNN`), para recorrer la trazabilidad escenario → tarea → código → prueba.
+
+**001 — Terreno con costo y enemigo cazador** (ver
+`specs/001-terreno-cazador/quickstart.md`):
+
+```
+python -m pytest tests/test_restricciones.py tests/test_generador_criptas.py tests/test_terreno.py tests/test_cazador.py tests/test_determinismo_cazador.py tests/test_equivalencia_cazador.py tests/test_reutilizacion_cazador.py tests/test_rendimiento_cazador.py tests/test_vista_consola.py -v
+```
+
+- `test_restricciones.py`: ningún módulo de la capacidad usa `dict`, `set`,
+  `heapq`, `bisect`, `collections` ni bibliotecas de grafos (Principio I).
+- `test_cazador.py`: escenarios de la US2 y comparación exhaustiva contra la
+  referencia teórica (`tests/referencia_cazador.py`).
+- `test_reutilizacion_cazador.py`: cambios de puertas alejadas no provocan
+  recálculo.
 
 ## Documentación adicional
 
@@ -142,6 +180,8 @@ python -m unittest discover -s tests
   consideradas, decisión, análisis de complejidad, evidencia empírica y
   límites conocidos.
 - `PROMPTS_LLM.md` — bitácora de uso de LLM durante el desarrollo.
+- `.specify/memory/constitution.md` y `specs/` — constitución y especificaciones
+  de spec-kit de la segunda parte (`spec.md`, `plan.md`, `tasks.md` por capacidad).
 
 ## Estructura
 
@@ -151,11 +191,13 @@ src/
   adaptadores/       acceso a datos (red y sin conexión) detrás de FuenteDatos
   controladores/     flujo de la aplicación
   estructuras_datos/ tabla_hash, agenda, lista_doble, inventario,
-                      buffer_circular, cache_fichas, ordenamiento
-  modelos/           reglas del juego (partida, entidades, fichas, acciones)
+                      buffer_circular, cache_fichas, ordenamiento,
+                      monticulo, registro_busqueda
+  modelos/           reglas del juego (partida, entidades, fichas, acciones,
+                      rutas y cazador)
   servicios/         carga de cripta y catálogo, caché persistente,
                       guardado binario/JSON, puntajes, bitácora, banco de
-                      pruebas de desempeño
+                      pruebas de desempeño, generador de criptas sintéticas
   vistas/            interfaz de consola
 herramientas/        exportar_offline (y herramientas de muestreo de la API)
 tests/

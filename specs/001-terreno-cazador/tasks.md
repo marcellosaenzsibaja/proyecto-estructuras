@@ -377,12 +377,12 @@ recalcula y cuándo no.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T063 Ejecutar `python main.py --bench`, comparar compartido incremental, individual y recalcular siempre, elegir el modo por defecto según la medición y fijarlo en `src/modelos/cazador.py` {FR-031, FR-032}
-- [ ] T064 Escribir en `DECISIONES.md` las secciones de P2 §5.1 y §5.2 con la estructura de P1 §8, enlazando a [spec.md](spec.md) y [plan.md](plan.md), e indicando si la decisión final coincide con el plan y qué medición motivó un cambio {FR-030, FR-031, FR-032, FR-033}
-- [ ] T065 Escribir en `DECISIONES.md` la parte de P2 §5.6 correspondiente a esta capacidad (agenda e historial con la carga nueva: antes y después, o datos que muestran que siguen siendo adecuados) {FR-034}
-- [ ] T066 Actualizar `README.md` con cómo ejecutar las pruebas de aceptación de esta capacidad (ver [quickstart.md](quickstart.md)), incluidos `--bench` y los criterios que se verifican {FR-031, FR-035, SC-001}
-- [ ] T067 Confirmar que `tests/test_restricciones.py` (T005) vigila todos los módulos nuevos de la capacidad y pasa {FR-021}
-- [ ] T068 Ejecutar `python -m pytest -q` completo y validar [quickstart.md](quickstart.md) de punta a punta {FR-005, FR-007, FR-027, SC-001, SC-005, SC-007}
+- [X] T063 Ejecutar `python main.py --bench`, comparar compartido incremental, individual y recalcular siempre, elegir el modo por defecto según la medición y fijarlo en `src/modelos/cazador.py` {FR-031, FR-032}
+- [X] T064 Escribir en `DECISIONES.md` las secciones de P2 §5.1 y §5.2 con la estructura de P1 §8, enlazando a [spec.md](spec.md) y [plan.md](plan.md), e indicando si la decisión final coincide con el plan y qué medición motivó un cambio {FR-030, FR-031, FR-032, FR-033}
+- [X] T065 Escribir en `DECISIONES.md` la parte de P2 §5.6 correspondiente a esta capacidad (agenda e historial con la carga nueva: antes y después, o datos que muestran que siguen siendo adecuados) {FR-034}
+- [X] T066 Actualizar `README.md` con cómo ejecutar las pruebas de aceptación de esta capacidad (ver [quickstart.md](quickstart.md)), incluidos `--bench` y los criterios que se verifican {FR-031, FR-035, SC-001}
+- [X] T067 Confirmar que `tests/test_restricciones.py` (T005) vigila todos los módulos nuevos de la capacidad y pasa {FR-021}
+- [X] T068 Ejecutar `python -m pytest -q` completo y validar [quickstart.md](quickstart.md) de punta a punta {FR-005, FR-007, FR-027, SC-001, SC-005, SC-007}
 
 ---
 

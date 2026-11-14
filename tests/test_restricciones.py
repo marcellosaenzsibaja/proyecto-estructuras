@@ -19,6 +19,7 @@ ARCHIVOS_VIGILADOS = [
     'src/modelos/rutas.py',
     'src/modelos/cazador.py',
     'src/servicios/generador_criptas.py',
+    'src/adaptadores/fuente_memoria.py',
     'tests/referencia_cazador.py',
     'tests/test_generador_criptas.py',
     'tests/utilidades_cripta.py',
