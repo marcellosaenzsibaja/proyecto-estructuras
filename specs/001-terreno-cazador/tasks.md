@@ -206,18 +206,18 @@ comprobar el reloj con `max(1, costo*100 // velocidad)`.
 
 ### Tests for User Story 1 (escribir primero) ⚠️
 
-- [ ] T016 [P] [US1] En `tests/test_terreno.py`: escenarios US1-1 (costo 250 → próxima acción en 250), US1-2 (sin costo → 100) y US1-5 (mismo costo en ambos sentidos) {FR-002, FR-003, FR-004}
-- [ ] T017 [P] [US1] En `tests/test_terreno.py`: US1-3 / Apéndice B, «velocidad alta y costo 1 → intervalo ≥ 1» {FR-004}
-- [ ] T018 [P] [US1] En `tests/test_terreno.py`: US1-4 / Apéndice B, cambio de velocidad tras atravesar una salida costosa, que escala el tiempo restante según P1 §2.3 {FR-006}
-- [ ] T019 [P] [US1] En `tests/test_terreno.py`: US1-6, los costos de atacar, esperar, usar, equipar, recoger, soltar y abrir no cambian; un errante y un rastreador conservan sus decisiones y solo cambia su intervalo {FR-005, FR-007}
+- [X] T016 [P] [US1] En `tests/test_terreno.py`: escenarios US1-1 (costo 250 → próxima acción en 250), US1-2 (sin costo → 100) y US1-5 (mismo costo en ambos sentidos) {FR-002, FR-003, FR-004}
+- [X] T017 [P] [US1] En `tests/test_terreno.py`: US1-3 / Apéndice B, «velocidad alta y costo 1 → intervalo ≥ 1» {FR-004}
+- [X] T018 [P] [US1] En `tests/test_terreno.py`: US1-4 / Apéndice B, cambio de velocidad tras atravesar una salida costosa, que escala el tiempo restante según P1 §2.3 {FR-006}
+- [X] T019 [P] [US1] En `tests/test_terreno.py`: US1-6, los costos de atacar, esperar, usar, equipar, recoger, soltar y abrir no cambian; un errante y un rastreador conservan sus decisiones y solo cambia su intervalo {FR-005, FR-007}
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] En `Partida._mover` de `src/modelos/partida.py`, devolver como costo el `costo` de la puerta atravesada en lugar de `COSTO_MOVER` {FR-003, FR-004}
-- [ ] T021 [US1] En `Partida._turno_enemigo` y `_mover_enemigo` de `src/modelos/partida.py`, programar la próxima acción con el costo real de la acción (100 al atacar o esperar, costo de la salida al moverse) en lugar de 100 fijo (research R8) {FR-003, FR-004, FR-005, FR-007}
-- [ ] T022 [US1] Verificar que `_cambiar_velocidad` en `src/modelos/partida.py` escala el tiempo restante sin depender del costo de origen; ajustar si T018 falla {FR-006}
-- [ ] T023 [US1] Agregar `costo` de la puerta al guardado binario y subir la versión del formato en `src/servicios/guardado.py`; un archivo de P1 se rechaza como incompatible (research R10) {FR-026, FR-029}
-- [ ] T024 [US1] Agregar en `tests/test_guardado.py` una prueba de guardar y cargar con costos y otra de rechazo del formato anterior; y en `tests/test_cache_persistente.py`, la caché de fichas conserva el `rango` de un cazador y se descarta si la versión del catálogo no coincide (validación de versión existente). P1 no persiste el esqueleto (se descarga en cada ejecución), así que lo único persistido por P1 que hay que invalidar son la caché de fichas y los archivos de guardado {FR-026, FR-029}
+- [X] T020 [US1] En `Partida._mover` de `src/modelos/partida.py`, devolver como costo el `costo` de la puerta atravesada en lugar de `COSTO_MOVER` {FR-003, FR-004}
+- [X] T021 [US1] En `Partida._turno_enemigo` y `_mover_enemigo` de `src/modelos/partida.py`, programar la próxima acción con el costo real de la acción (100 al atacar o esperar, costo de la salida al moverse) en lugar de 100 fijo (research R8) {FR-003, FR-004, FR-005, FR-007}
+- [X] T022 [US1] Verificar que `_cambiar_velocidad` en `src/modelos/partida.py` escala el tiempo restante sin depender del costo de origen; ajustar si T018 falla {FR-006}
+- [X] T023 [US1] Agregar `costo` de la puerta al guardado binario y subir la versión del formato en `src/servicios/guardado.py`; un archivo de P1 se rechaza como incompatible (research R10) {FR-026, FR-029}
+- [X] T024 [US1] Agregar en `tests/test_guardado.py` una prueba de guardar y cargar con costos y otra de rechazo del formato anterior; y en `tests/test_cache_persistente.py`, la caché de fichas conserva el `rango` de un cazador y se descarta si la versión del catálogo no coincide (validación de versión existente). P1 no persiste el esqueleto (se descarga en cada ejecución), así que lo único persistido por P1 que hay que invalidar son la caché de fichas y los archivos de guardado {FR-026, FR-029}
 
 **Checkpoint**: US1 funciona sola; la batería completa pasa.
 

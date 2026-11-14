@@ -88,3 +88,34 @@ class PruebasGuardado(unittest.TestCase):
         self.assertLess(os.path.getsize(ruta_bin), os.path.getsize(ruta_json))
 if __name__ == '__main__':
     unittest.main()
+
+
+class PruebasCostoEnGuardado(unittest.TestCase):
+    """T024: el costo de las puertas en el guardado (FR-026, FR-029)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+
+    def test_guardar_y_cargar_conserva_costos_FR029(self):
+        p = construir([(1, 'N', 2, {'costo': 250}), (2, 'E', 3, {'costo': 7})])
+        p.iniciar()
+        p.ejecutar(Accion(MOVER, NORTE))
+        ruta = os.path.join(self._tmp.name, 'partida.bin')
+        guardar_binario(tomar_snapshot(p), ruta)
+        nueva = construir([(1, 'N', 2, {'costo': 250}), (2, 'E', 3, {'costo': 7})])
+        restaurada = restaurar_partida(cargar_binario(ruta), nueva.cripta, nueva.proveedor)
+        sala2 = restaurada.cripta.sala(2)
+        self.assertEqual(sala2.salidas[1].puerta.costo, 250)  # S hacia la sala 1
+        self.assertEqual(sala2.salidas[2].puerta.costo, 7)    # E hacia la sala 3
+        self.assertIs(sala2.salidas[1].puerta, restaurada.cripta.sala(1).salidas[0].puerta)
+        self.assertIs(sala2.salidas[2].sala_destino, restaurada.cripta.sala(3))
+
+    def test_archivo_de_la_primera_parte_se_rechaza_FR026(self):
+        import struct
+        ruta = os.path.join(self._tmp.name, 'viejo.bin')
+        with open(ruta, 'wb') as archivo:
+            archivo.write(struct.pack('>4sBII', b'CRPT', 1, 0, 0))
+        with self.assertRaises(ErrorDatos) as contexto:
+            cargar_binario(ruta)
+        self.assertIn('incompatible', str(contexto.exception))

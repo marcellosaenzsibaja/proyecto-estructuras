@@ -54,3 +54,22 @@ class PruebasCachePersistente(unittest.TestCase):
         self.assertNotIn('b', restaurada)
 if __name__ == '__main__':
     unittest.main()
+
+
+class PruebasCacheConCazador(unittest.TestCase):
+    """T024: la caché de fichas y el cazador (FR-026)."""
+
+    def test_conserva_rango_y_descarta_otra_version_FR026(self):
+        import json
+        import tempfile as _tempfile
+        from src.estructuras_datos.cache_fichas import CacheFichas
+        from src.servicios.cache_persistente import cargar_cache, guardar_cache
+        from src.servicios.fabrica_fichas import ficha_desde_dict
+        from src.servicios.generador_criptas import ficha_cazador
+        with _tempfile.TemporaryDirectory() as carpeta:
+            ruta = carpeta + '/cache.json'
+            cache = CacheFichas(5)
+            cache.poner('ent_sabueso', ficha_desde_dict(json.loads(ficha_cazador('ent_sabueso', 600))))
+            guardar_cache(cache, ruta, 'cat-2')
+            self.assertEqual(cargar_cache(ruta, 'cat-2', 5).obtener('ent_sabueso').rango, 600)
+            self.assertIsNone(cargar_cache(ruta, 'cat-3', 5).obtener('ent_sabueso'))

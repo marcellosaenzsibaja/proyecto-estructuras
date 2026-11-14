@@ -380,7 +380,8 @@ class Partida:
         self._activar_trampas(destino)
         if self.estado == EN_CURSO and destino.id == self.cripta.datos.sala_salida and salida.puerta.abierta_por_jugador and (salida.puerta.llave == self.cripta.datos.llave_salida):
             self._victoria()
-        return _aceptada('', COSTO_MOVER)
+        # El costo base del movimiento es el costo de la salida (FR-003).
+        return _aceptada('', salida.puerta.costo)
 
     def _activar_trampas(self, sala):
         for trampa in sala.trampas:
@@ -652,32 +653,49 @@ class Partida:
         self._set_atributo(enemigo, 'evento', None)
         if enemigo.sala_id == self.jugador.sala_id:
             self._ataque_enemigo(enemigo)
+            costo = COSTO_ATACAR
         else:
-            self._comportamiento(enemigo)
+            costo = self._comportamiento(enemigo)
         if self.estado == EN_CURSO and enemigo.vivo:
-            self._programar_accion(enemigo, 100)
+            # Atacar y esperar cuestan 100; moverse, el costo de la salida (FR-003, FR-005, research R8).
+            self._programar_accion(enemigo, costo)
 
     def _ataque_enemigo(self, enemigo):
         dano = self._calcular_dano(enemigo.ataque, self.jugador.defensa_total)
         self._danar_jugador(dano, self._nombre(enemigo))
 
-    def _comportamiento(self, enemigo):
+    def _comportamiento(self, enemigo) -> int:
+        """Aplica el comportamiento del enemigo y devuelve el costo base de la acción realizada."""
         comportamiento = enemigo.comportamiento
         if comportamiento == GUARDIAN:
-            return
+            return COSTO_ESPERAR
         sala = self.cripta.sala(enemigo.sala_id)
         if comportamiento == ERRANTE:
             opciones = []
             for direccion in range(4):
                 salida = sala.salidas[direccion]
                 if salida is not None and (not salida.puerta.cerrada):
-                    opciones.append(salida.destino)
+                    opciones.append(salida)
             if opciones:
-                self._mover_enemigo(enemigo, opciones[self.azar.randrange(len(opciones))])
+                salida = opciones[self.azar.randrange(len(opciones))]
+                self._mover_enemigo(enemigo, salida.destino)
+                return salida.puerta.costo
         elif comportamiento == RASTREADOR:
             destino = self._vecino_con_rastro_fresco(sala)
             if destino is not None:
                 self._mover_enemigo(enemigo, destino)
+                return self._costo_hacia(sala, destino)
+        return COSTO_ESPERAR
+
+    def _costo_hacia(self, sala, id_destino: int) -> int:
+        """Costo de la salida abierta más barata hacia id_destino; empate por orden N, S, E, O (FR-015)."""
+        mejor = None
+        for direccion in range(4):
+            salida = sala.salidas[direccion]
+            if salida is not None and salida.destino == id_destino and not salida.puerta.cerrada:
+                if mejor is None or salida.puerta.costo < mejor:
+                    mejor = salida.puerta.costo
+        return COSTO_MOVER if mejor is None else mejor
 
     def _vecino_con_rastro_fresco(self, sala):
         ahora = self.reloj.tiempo_virtual

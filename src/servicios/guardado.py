@@ -6,7 +6,9 @@ from src.modelos.entidades import Objeto, Puerta, Salida, Enemigo, Trampa
 from src.modelos.errores import ErrorDatos
 from src.modelos.partida import EN_CURSO, Partida
 MAGIC = b'CRPT'
-FORMATO_VERSION = 1
+# Versión 2: agrega el costo de cada puerta (P2, FR-001). Un archivo de la
+# versión 1 (primera parte) se rechaza como incompatible (FR-026).
+FORMATO_VERSION = 2
 _ESTADOS = ('en_curso', 'victoria', 'derrota')
 
 def _estado_a_codigo(estado):
@@ -31,7 +33,7 @@ def tomar_snapshot(partida) -> dict:
             if salida is None:
                 puertas.append(None)
                 continue
-            puertas.append({'destino': salida.destino, 'cerrada': salida.puerta.cerrada, 'llave': salida.puerta.llave, 'abierta_por_jugador': salida.puerta.abierta_por_jugador})
+            puertas.append({'destino': salida.destino, 'cerrada': salida.puerta.cerrada, 'llave': salida.puerta.llave, 'abierta_por_jugador': salida.puerta.abierta_por_jugador, 'costo': salida.puerta.costo})
         salas.append({'id': sala.id, 'rastro': sala.rastro, 'puertas': puertas, 'objetos': [{'uid': o.uid, 'id_ficha': o.ficha.id} for o in sala.objetos], 'enemigos': [{'instancia': e.id_actor, 'id_ficha': e.ficha.id, 'vida': e.vida, 'activo': e.activo} for e in sala.enemigos], 'trampas': [{'instancia': t.instancia, 'id_ficha': t.ficha.id, 'armada': t.armada} for t in sala.trampas]})
     return {'cripta_id': partida.cripta.datos.id, 'version_cripta': partida.cripta.datos.version, 'semilla': partida.semilla, 'tiempo_virtual': partida.reloj.tiempo_virtual, 'acciones_jugador': partida.acciones_jugador, 'enemigos_derrotados': partida.enemigos_derrotados, 'estado': partida.estado, 'siguiente_uid': partida._siguiente_uid, 'jugador': {'vida': jugador.vida, 'sala_id': jugador.sala_id, 'inventario': inventario}, 'salas': salas}
 
@@ -56,7 +58,7 @@ def restaurar_partida(snapshot: dict, cripta, proveedor) -> Partida:
             if info is None:
                 sala.salidas[direccion] = None
                 continue
-            puerta = Puerta(cerrada=info['cerrada'], llave=info['llave'])
+            puerta = Puerta(cerrada=info['cerrada'], llave=info['llave'], costo=info['costo'])
             puerta.abierta_por_jugador = info['abierta_por_jugador']
             sala.salidas[direccion] = Salida(info['destino'], puerta)
         sala.dormidos = []
@@ -94,6 +96,8 @@ def restaurar_partida(snapshot: dict, cripta, proveedor) -> Partida:
         if item['armadura']:
             jugador.armadura = objeto
         proveedor.fijar(ficha.id)
+    # Vuelve a unir las puertas de ambos lados y a enlazar Salida.sala_destino (research R3).
+    cripta.enlazar_puertas()
     jugador.evento = None
     partida._esperando_jugador = partida.estado == EN_CURSO
     partida._grabando = True
@@ -181,6 +185,7 @@ def _empacar_sala(crudo: dict) -> bytes:
             continue
         partes.append(struct.pack('>B', 1))
         partes.append(struct.pack('>i', info['destino']))
+        partes.append(struct.pack('>I', info['costo']))
         partes.append(struct.pack('>B', 1 if info['cerrada'] else 0))
         partes.append(_empacar_str_opcional(info['llave']))
         partes.append(struct.pack('>B', 1 if info['abierta_por_jugador'] else 0))
@@ -215,12 +220,14 @@ def _desempacar_sala(buf, pos):
             continue
         destino, = struct.unpack_from('>i', buf, pos)
         pos += 4
+        costo, = struct.unpack_from('>I', buf, pos)
+        pos += 4
         cerrada, = struct.unpack_from('>B', buf, pos)
         pos += 1
         llave, pos = _desempacar_str_opcional(buf, pos)
         abierta, = struct.unpack_from('>B', buf, pos)
         pos += 1
-        puertas.append({'destino': destino, 'cerrada': bool(cerrada), 'llave': llave, 'abierta_por_jugador': bool(abierta)})
+        puertas.append({'destino': destino, 'cerrada': bool(cerrada), 'llave': llave, 'abierta_por_jugador': bool(abierta), 'costo': costo})
     n_objetos, = struct.unpack_from('>H', buf, pos)
     pos += 2
     objetos = []

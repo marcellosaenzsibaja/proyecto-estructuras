@@ -73,8 +73,9 @@ class Cripta:
 def _costo_fusionado(propia, otra, id_sala, direccion, id_destino) -> int:
     """Costo único de una conexión a partir de lo que declara cada lado (FR-002, research R4).
 
-    Ninguno declara: 100. Uno solo declara: ese valor. Ambos con valores
-    distintos: error de datos con las salas y las direcciones.
+    Ninguno declara: el costo de la puerta (100 salvo que se haya construido
+    con otro valor). Uno solo declara: ese valor. Ambos con valores distintos:
+    error de datos con las salas y las direcciones.
     """
     if propia.costo_declarado and otra.costo_declarado:
         if propia.costo != otra.costo:
@@ -86,4 +87,4 @@ def _costo_fusionado(propia, otra, id_sala, direccion, id_destino) -> int:
     if otra.costo_declarado:
         propia.costo_declarado = True
         return otra.costo
-    return 100
+    return propia.costo
