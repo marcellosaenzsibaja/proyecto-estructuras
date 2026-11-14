@@ -157,3 +157,15 @@
 - Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-implement`)
 - Prompt: "Sí, fase 5"
 - Uso de la respuesta: implementar la fase 5 de 001 (punto único de cambio de puertas, reutilización de rutas con no recálculo demostrado y guardado que continúa con las mismas decisiones).
+
+## Entrada 27
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-implement`)
+- Prompt: "Sí, ambas"
+- Uso de la respuesta: implementar la fase 6 de 001 (costo de cada salida y marca de cazador en la vista).
+
+## Entrada 28
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-implement`)
+- Prompt: "Sí, fase 7"
+- Uso de la respuesta: implementar la fase 7 de 001 (escenarios de `--bench` del cazador y medición robusta del ciclo de eventos).
