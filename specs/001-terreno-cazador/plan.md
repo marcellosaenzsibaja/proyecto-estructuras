@@ -11,8 +11,9 @@ guarda una sola vez por conexión, en la `Puerta` compartida, y se usa como cost
 movimiento de cualquier actor. El cazador decide con una **búsqueda acotada de costo mínimo**
 implementada por el grupo: un montículo binario de mínimos propio para escoger la sala pendiente
 más barata, y registros en listas indexadas por un índice compacto de sala con marca de generación,
-sin `dict`, `set` ni hash. La estrategia preliminar es un **cálculo compartido desde la sala del
-jugador**, acotado por el mayor rango activo, que se **reutiliza** mientras la sala del jugador, la
+sin `dict`, `set` ni hash. La estrategia preliminar es un **cálculo compartido incremental desde la sala
+del jugador**, que se expande solo hasta el rango del cazador que decide y se retoma para rangos
+mayores, y que se **reutiliza** mientras la sala del jugador, la
 cota y las puertas relevantes no cambien. La alternativa individual, que explora desde cada cazador
 y corta la rama que supera su rango, y la de recalcular siempre se implementan para medirlas con
 `--bench`. Detalle en [research.md](research.md).

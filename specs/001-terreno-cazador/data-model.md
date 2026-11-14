@@ -48,22 +48,26 @@ cumple, `ErrorDatos` con sala y dirección (FR-008).
 
 - Almacenamiento: `list` de pares `(costo, indice)`. Orden: menor costo y, si empatan, menor
   índice, para que sea determinista.
-- Operaciones: `insertar(costo, indice)` O(log k), `extraer_minimo()` O(log k), `esta_vacio()` O(1),
-  `vaciar()` O(1) (reutiliza la lista).
+- Operaciones: `insertar(costo, indice)` O(log k), `extraer_minimo()` O(log k), `minimo()` O(1)
+  (consulta sin extraer, para pausar la búsqueda), `esta_vacio()` O(1), `vaciar()` (reutiliza la
+  lista).
 
 ### RegistroBusqueda (`src/estructuras_datos/registro_busqueda.py`) — R2
 
 - Listas de tamaño n indexadas por `Sala.indice`: `distancia`, `primer_paso`, `marca` (generación
-  en que se registró la distancia), `asentada` (generación en que se asentó) y `borde` (generación
-  en que se contó como borde).
+  en que se registró una distancia tentativa) y `asentada` (generación en que se asentó).
 - `generacion: int`. `nueva_busqueda()` incrementa la generación en O(1). `tiene(i)` es
   `marca[i] == generacion`.
-- Contador `examinadas` de la última búsqueda (R9).
+- Contador `examinadas` de la búsqueda actual (R9): suma 1 la primera vez que una sala recibe
+  `marca == generacion`.
 
 ### BuscadorRutas (`src/modelos/rutas.py`) — R5
 
-- `distancias_desde(sala_origen, cota)`: búsqueda acotada que deja en el registro `dist(v)` para
-  toda sala con distancia ≤ cota, usando solo salidas con puerta abierta en ese instante.
+- `distancias_desde(sala_origen, cota)`: inicia una búsqueda acotada que deja en el registro
+  `dist(v)` para toda sala con distancia ≤ cota, usando solo salidas con puerta abierta en ese
+  instante, y queda en pausa con `cota_alcanzada = cota`.
+- `extender_hasta(cota_nueva)`: retoma la misma búsqueda (misma generación y mismo montículo) hasta
+  `cota_nueva` si es mayor que `cota_alcanzada` (R5).
 - `primer_paso_desde(sala_origen, sala_objetivo, cota)`: modo individual; devuelve `(d, vecina)` con
   el desempate de FR-014 y FR-015, o `None`.
 - No conoce la niebla de guerra ni el contenido de las salas (FR-017).
