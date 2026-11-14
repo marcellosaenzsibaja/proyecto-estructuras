@@ -158,7 +158,7 @@ La constitución (Principio I) y FR-021 prohíben resolver los problemas evaluad
 conveniencia de Python o de bibliotecas. Esta fase empieza con una verificación automática para que
 la prohibición no dependa de revisiones manuales.
 
-- [ ] T005 Escribir `tests/test_restricciones.py`, una prueba estática con el módulo `ast` que recorre los archivos de la capacidad (`src/estructuras_datos/monticulo.py`, `src/estructuras_datos/registro_busqueda.py`, `src/modelos/rutas.py`, `src/modelos/cazador.py`, `src/servicios/generador_criptas.py`, `tests/referencia_cazador.py`, `tests/test_generador_criptas.py` y `tests/utilidades_cripta.py`) y **falla** si encuentra:
+- [X] T005 Escribir `tests/test_restricciones.py`, una prueba estática con el módulo `ast` que recorre los archivos de la capacidad (`src/estructuras_datos/monticulo.py`, `src/estructuras_datos/registro_busqueda.py`, `src/modelos/rutas.py`, `src/modelos/cazador.py`, `src/servicios/generador_criptas.py`, `tests/referencia_cazador.py`, `tests/test_generador_criptas.py` y `tests/utilidades_cripta.py`) y **falla** si encuentra:
   - importaciones de `heapq`, `bisect`, `collections` (incluidos `deque`, `OrderedDict`, `defaultdict`, `Counter`), `queue`, `networkx`, `functools.lru_cache` o `functools.cache`, ni ninguna biblioteca de grafos o de búsqueda de rutas;
   - literales o constructores de diccionario o conjunto (`{}`, `{k: v}`, `{a, b}`, `dict(...)`, `set(...)`, `frozenset(...)`) y comprensiones de diccionario o conjunto;
   - llamadas a `sorted(...)` o `.sort(...)` (P1 §4.9);
@@ -168,30 +168,30 @@ la prohibición no dependa de revisiones manuales.
 
 ### 2.2 Pruebas de la fase (escribir primero)
 
-- [ ] T006 [P] Escribir `tests/test_monticulo.py` para el mecanismo exacto de T010:
+- [X] T006 [P] Escribir `tests/test_monticulo.py` para el mecanismo exacto de T010:
   - orden por la tupla `(costo, indice)` (D3), con empates de costo resueltos por menor índice;
   - **entradas obsoletas**: insertar `(50, 7)` y después `(30, 7)` para la misma sala; el primer `extraer_minimo` devuelve `(30, 7)`; el `(50, 7)` sigue en el montículo y, al extraerlo, el consumidor lo reconoce como obsoleto (ver T010), así que una sala nunca se asienta dos veces;
   - el tamaño del montículo es el número de inserciones menos el de extracciones (las obsoletas no se borran antes de tiempo); `minimo()` devuelve lo mismo que el siguiente `extraer_minimo()` y no cambia el tamaño;
   - `extraer_minimo` en vacío lanza `IndexError`; `vaciar()` deja el montículo reutilizable;
   - secuencia sembrada de 10 000 operaciones comparada con una referencia de búsqueda lineal: misma secuencia de extracciones. {FR-014, FR-030}
-- [ ] T007 [P] Escribir `tests/test_registro_busqueda.py`: `nueva_busqueda()` incrementa la generación en O(1) sin recorrer las listas; tras ella `tiene(i)` y `asentada(i)` son falsos para todo `i`; los valores de una generación anterior no se leen como válidos; el contador `examinadas` se reinicia por búsqueda y suma 1 **solo la primera vez** que una sala recibe distancia en la generación, de modo que una sala de borde que después se asienta (al extender la búsqueda) no se cuenta dos veces (research R9) {FR-030}
-- [ ] T008 [P] Escribir en `tests/test_terreno.py` las pruebas de carga del costo: ausente → 100; «entero ≥ 1»; un solo lado declara → vale para ambos; ambos distintos → `ErrorDatos` con salas y direcciones; menor que 1 o no entero → `ErrorDatos` con sala y dirección; y cargar una cripta con costos y cazadores hace **exactamente la misma cantidad de solicitudes** que la misma cripta sin esos campos, medido con el contador de la fuente simulada {FR-001, FR-002, FR-008, FR-025}
-- [ ] T009 [P] Escribir en `tests/test_cazador.py` las pruebas de la ficha: `comportamiento: cazador` con `rango` «int ≥ 0»; ficha `cazador` sin `rango` válido → `ErrorDatos` con el id de la ficha, sin valor por defecto {FR-009}
+- [X] T007 [P] Escribir `tests/test_registro_busqueda.py`: `nueva_busqueda()` incrementa la generación en O(1) sin recorrer las listas; tras ella `tiene(i)` y `asentada(i)` son falsos para todo `i`; los valores de una generación anterior no se leen como válidos; el contador `examinadas` se reinicia por búsqueda y suma 1 **solo la primera vez** que una sala recibe distancia en la generación, de modo que una sala de borde que después se asienta (al extender la búsqueda) no se cuenta dos veces (research R9) {FR-030}
+- [X] T008 [P] Escribir en `tests/test_terreno.py` las pruebas de carga del costo: ausente → 100; «entero ≥ 1»; un solo lado declara → vale para ambos; ambos distintos → `ErrorDatos` con salas y direcciones; menor que 1 o no entero → `ErrorDatos` con sala y dirección; y cargar una cripta con costos y cazadores hace **exactamente la misma cantidad de solicitudes** que la misma cripta sin esos campos, medido con el contador de la fuente simulada {FR-001, FR-002, FR-008, FR-025}
+- [X] T009 [P] Escribir en `tests/test_cazador.py` las pruebas de la ficha: `comportamiento: cazador` con `rango` «int ≥ 0»; ficha `cazador` sin `rango` válido → `ErrorDatos` con el id de la ficha, sin valor por defecto {FR-009}
 
 ### 2.3 Implementación de la fase
 
-- [ ] T010 [P] Implementar `MonticuloMin` en `src/estructuras_datos/monticulo.py` (research R1), sin `heapq`, con **eliminación perezosa** exacta:
+- [X] T010 [P] Implementar `MonticuloMin` en `src/estructuras_datos/monticulo.py` (research R1), sin `heapq`, con **eliminación perezosa** exacta:
   - **Almacenamiento**: una `list` de pares `(costo, indice)` organizada como montículo binario de mínimos (hijo izquierdo `2i+1`, derecho `2i+2`, padre `(i-1)//2`), con comparación por la tupla de D3.
   - **Operaciones**: `insertar(costo, indice)` agrega al final y sube, O(log k); `extraer_minimo()` intercambia la raíz con el último, quita el último y baja, O(log k); `minimo()` devuelve la raíz sin extraerla, O(1), para que la búsqueda pueda **pausar** sin perder la entrada (research R5); `esta_vacio()` O(1); `vaciar()` reutiliza la lista.
   - **Sin «disminuir clave»**: el montículo no sabe nada de salas ni de obsolescencia. Cuando la búsqueda (T036) encuentra un costo menor para una sala, **inserta una entrada nueva** y deja la anterior en el montículo.
   - **Regla de obsolescencia** (la aplica el consumidor, T036, al extraer `(c, i)`): la entrada es obsoleta y se descarta sin examinar la sala si (a) la sala `i` ya está asentada en la generación actual, o (b) `c` es distinto de la distancia registrada de `i` en la generación actual (llegó una entrada más barata después). En otro caso se asienta.
   - **Cota de memoria**: cada inserción corresponde a una mejora de distancia; con a lo sumo 4 salidas por sala, el montículo nunca supera `1 + 4 · salas_asentadas` entradas, así que la memoria crece con la región examinada y no con la cripta.
   - Documentar en el docstring el porqué de la eliminación perezosa (evita llevar la posición de cada sala dentro del montículo) y su costo: hasta 4 entradas por sala en lugar de 1. {FR-014, FR-030}
-- [ ] T011 [P] Implementar `RegistroBusqueda` en `src/estructuras_datos/registro_busqueda.py` (research R2): listas de tamaño n indexadas por `Sala.indice` para `distancia`, `primer_paso`, `marca` (generación en que se registró una distancia tentativa) y `asentada` (generación en que se asentó); entero `generacion`; contador `examinadas` que suma 1 la primera vez que una sala recibe `marca == generacion` (research R9). Sin `dict`, `set` ni hash {FR-021, FR-030}
-- [ ] T012 Agregar `Puerta.costo` («int ≥ 1», 100 por defecto), `Salida.sala_destino` y `Sala.indice` en `src/modelos/entidades.py` (data-model) {FR-001, FR-002}
-- [ ] T013 Asignar `Sala.indice` compacto en orden de carga en `Cripta.agregar_sala`, enlazar `Salida.sala_destino` y fusionar o validar el costo de ambos lados en `Cripta.enlazar_puertas` en `src/modelos/cripta.py` (depende de T012; research R3 y R4) {FR-001, FR-002, FR-008}
-- [ ] T014 Leer y validar `costo` en `_sala_desde_dict` de `src/servicios/cargador_cripta.py`, guardando si el lado lo declaró para que `enlazar_puertas` valide la simetría (depende de T013) {FR-001, FR-002, FR-008, FR-025}
-- [ ] T015 Agregar `rango` y el comportamiento `cazador` en `src/modelos/fichas.py`, y leerlos y validarlos en `src/servicios/fabrica_fichas.py` (ver T009) {FR-009, FR-025}
+- [X] T011 [P] Implementar `RegistroBusqueda` en `src/estructuras_datos/registro_busqueda.py` (research R2): listas de tamaño n indexadas por `Sala.indice` para `distancia`, `primer_paso`, `marca` (generación en que se registró una distancia tentativa) y `asentada` (generación en que se asentó); entero `generacion`; contador `examinadas` que suma 1 la primera vez que una sala recibe `marca == generacion` (research R9). Sin `dict`, `set` ni hash {FR-021, FR-030}
+- [X] T012 Agregar `Puerta.costo` («int ≥ 1», 100 por defecto), `Salida.sala_destino` y `Sala.indice` en `src/modelos/entidades.py` (data-model) {FR-001, FR-002}
+- [X] T013 Asignar `Sala.indice` compacto en orden de carga en `Cripta.agregar_sala`, enlazar `Salida.sala_destino` y fusionar o validar el costo de ambos lados en `Cripta.enlazar_puertas` en `src/modelos/cripta.py` (depende de T012; research R3 y R4) {FR-001, FR-002, FR-008}
+- [X] T014 Leer y validar `costo` en `_sala_desde_dict` de `src/servicios/cargador_cripta.py`, guardando si el lado lo declaró para que `enlazar_puertas` valide la simetría (depende de T013) {FR-001, FR-002, FR-008, FR-025}
+- [X] T015 Agregar `rango` y el comportamiento `cazador` en `src/modelos/fichas.py`, y leerlos y validarlos en `src/servicios/fabrica_fichas.py` (ver T009) {FR-009, FR-025}
 
 **Checkpoint**: T005 a T009 pasan; la batería de P1 sigue pasando.
 

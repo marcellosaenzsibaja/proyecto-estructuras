@@ -8,6 +8,7 @@ PERGAMINO = 'pergamino_retroceso'
 GUARDIAN = 'guardian'
 ERRANTE = 'errante'
 RASTREADOR = 'rastreador'
+CAZADOR = 'cazador'
 
 class Ficha:
 
@@ -18,7 +19,7 @@ class Ficha:
 
 class FichaEnemigo(Ficha):
 
-    def __init__(self, id_ficha, nombre, vida_max, ataque, defensa, velocidad, comportamiento, suelta=(), regeneracion=None):
+    def __init__(self, id_ficha, nombre, vida_max, ataque, defensa, velocidad, comportamiento, suelta=(), regeneracion=None, rango=None):
         super().__init__(id_ficha, 'enemigo', nombre)
         self.vida_max = vida_max
         self.ataque = ataque
@@ -27,6 +28,8 @@ class FichaEnemigo(Ficha):
         self.comportamiento = comportamiento
         self.suelta = tuple(suelta)
         self.regeneracion = regeneracion
+        # Solo cazadores: costo máximo de la ruta que persiguen (FR-009).
+        self.rango = rango
 
 class FichaObjeto(Ficha):
 

@@ -1,5 +1,5 @@
 from src.modelos.errores import ErrorDatos
-from src.modelos.fichas import ANTIDOTO, ANTORCHA, ARMA, ARMADURA, ERRANTE, GUARDIAN, LLAVE, PERGAMINO, POCION, RASTREADOR, FichaEnemigo, FichaObjeto, FichaTrampa
+from src.modelos.fichas import ANTIDOTO, ANTORCHA, ARMA, ARMADURA, CAZADOR, ERRANTE, GUARDIAN, LLAVE, PERGAMINO, POCION, RASTREADOR, FichaEnemigo, FichaObjeto, FichaTrampa
 CLASES_OBJETO = (ARMA, ARMADURA, POCION, ANTIDOTO, LLAVE, ANTORCHA, PERGAMINO)
 _ACENTOS = (('á', 'a'), ('é', 'e'), ('í', 'i'), ('ó', 'o'), ('ú', 'u'))
 
@@ -18,6 +18,8 @@ def _comportamiento(texto):
             return ERRANTE
         if normal == 'rastreador':
             return RASTREADOR
+        if normal == 'cazador':
+            return CAZADOR
     raise ErrorDatos(f'Comportamiento de enemigo desconocido: {texto!r}')
 
 def _entero(datos, campo, minimo=None, obligatorio=True):
@@ -44,6 +46,8 @@ def dict_desde_ficha(ficha) -> dict:
         base.update(vida_max=ficha.vida_max, ataque=ficha.ataque, defensa=ficha.defensa, velocidad=ficha.velocidad, comportamiento=ficha.comportamiento, suelta=list(ficha.suelta))
         if ficha.regeneracion is not None:
             base['regeneracion'] = ficha.regeneracion
+        if ficha.rango is not None:
+            base['rango'] = ficha.rango
         return base
     if isinstance(ficha, FichaTrampa):
         base.update(daño=ficha.dano)
@@ -82,7 +86,9 @@ def _construir(datos):
         suelta = datos.get('suelta') or []
         if not isinstance(suelta, list):
             raise ErrorDatos("el campo 'suelta' debe ser una lista")
-        return FichaEnemigo(id_ficha, nombre, _entero(datos, 'vida_max', 1), _entero(datos, 'ataque', 0), _entero(datos, 'defensa', 0), _entero(datos, 'velocidad', 1), _comportamiento(datos.get('comportamiento')), suelta, _entero(datos, 'regeneracion', 1, obligatorio=False))
+        comportamiento = _comportamiento(datos.get('comportamiento'))
+        rango = _entero(datos, 'rango', 0) if comportamiento == CAZADOR else None
+        return FichaEnemigo(id_ficha, nombre, _entero(datos, 'vida_max', 1), _entero(datos, 'ataque', 0), _entero(datos, 'defensa', 0), _entero(datos, 'velocidad', 1), comportamiento, suelta, _entero(datos, 'regeneracion', 1, obligatorio=False), rango)
     if clase == 'trampa':
         return FichaTrampa(id_ficha, nombre, _entero(datos, 'daño', 0), _entero(datos, 'rearme', 1, obligatorio=False))
     if clase not in CLASES_OBJETO:

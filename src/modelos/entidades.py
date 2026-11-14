@@ -17,27 +17,34 @@ class Trampa:
         self.evento_rearme = None
 
 class Puerta:
-    __slots__ = ('cerrada', 'llave', 'cierre_automatico', 'evento_cierre', 'abierta_por_jugador')
+    __slots__ = ('cerrada', 'llave', 'cierre_automatico', 'evento_cierre', 'abierta_por_jugador', 'costo', 'costo_declarado')
 
-    def __init__(self, cerrada=False, llave=None, cierre_automatico=None):
+    def __init__(self, cerrada=False, llave=None, cierre_automatico=None, costo=100, costo_declarado=False):
         self.cerrada = cerrada
         self.llave = llave
         self.cierre_automatico = cierre_automatico
+        # Costo de tránsito, compartido por los dos lados de la conexión (FR-001, FR-002).
+        self.costo = costo
+        self.costo_declarado = costo_declarado
         self.evento_cierre = None
         self.abierta_por_jugador = False
 
 class Salida:
-    __slots__ = ('destino', 'puerta')
+    __slots__ = ('destino', 'puerta', 'sala_destino')
 
     def __init__(self, destino, puerta):
         self.destino = destino
         self.puerta = puerta
+        # Referencia directa a la sala vecina; la asigna Cripta.enlazar_puertas (research R3).
+        self.sala_destino = None
 
 class Sala:
 
     def __init__(self, id_sala: int, nombre: str):
         self.id = id_sala
         self.nombre = nombre
+        # Índice compacto 0..n-1 según el orden de carga (research R2).
+        self.indice = -1
         self.salidas = [None, None, None, None]
         self.enemigos = []
         self.dormidos = []

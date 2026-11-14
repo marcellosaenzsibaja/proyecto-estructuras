@@ -1,5 +1,5 @@
 from src.estructuras_datos.tabla_hash import TablaHash
-from src.modelos.direcciones import OPUESTA
+from src.modelos.direcciones import LETRAS, OPUESTA
 from src.modelos.errores import ErrorDatos
 
 class EstadisticasJugador:
@@ -30,6 +30,8 @@ class Cripta:
         self._salas = TablaHash()
 
     def agregar_sala(self, sala):
+        if not self._salas.contiene(sala.id):
+            sala.indice = len(self._salas)
         self._salas.poner(sala.id, sala)
 
     def sala(self, id_sala):
@@ -54,13 +56,34 @@ class Cripta:
                 if salida is None:
                     continue
                 destino = self.sala(salida.destino)
+                salida.sala_destino = destino
                 contraria = destino.salidas[OPUESTA[direccion]]
                 if contraria is None or contraria.destino != sala.id or contraria.puerta is salida.puerta:
                     continue
                 propia, otra = (salida.puerta, contraria.puerta)
+                propia.costo = _costo_fusionado(propia, otra, sala.id, direccion, destino.id)
                 propia.cerrada = propia.cerrada or otra.cerrada
                 if propia.llave is None:
                     propia.llave = otra.llave
                 if propia.cierre_automatico is None:
                     propia.cierre_automatico = otra.cierre_automatico
                 contraria.puerta = propia
+
+
+def _costo_fusionado(propia, otra, id_sala, direccion, id_destino) -> int:
+    """Costo único de una conexión a partir de lo que declara cada lado (FR-002, research R4).
+
+    Ninguno declara: 100. Uno solo declara: ese valor. Ambos con valores
+    distintos: error de datos con las salas y las direcciones.
+    """
+    if propia.costo_declarado and otra.costo_declarado:
+        if propia.costo != otra.costo:
+            raise ErrorDatos(f'Costo asimétrico: sala {id_sala} salida {LETRAS[direccion]} declara {propia.costo} '
+                             f'y sala {id_destino} salida {LETRAS[OPUESTA[direccion]]} declara {otra.costo}')
+        return propia.costo
+    if propia.costo_declarado:
+        return propia.costo
+    if otra.costo_declarado:
+        propia.costo_declarado = True
+        return otra.costo
+    return 100
