@@ -102,16 +102,39 @@ def medir_guardado(acciones: int=50) -> dict:
         bytes_json = os.path.getsize(ruta_json)
     return {'segundos_guardar_binario': t_guardar_bin, 'segundos_guardar_json': t_guardar_json, 'segundos_cargar_binario': t_cargar_bin, 'segundos_cargar_json': t_cargar_json, 'bytes_binario': bytes_bin, 'bytes_json': bytes_json}
 
-def ejecutar_todo() -> dict:
-    return {'agenda': medir_agenda(), 'cache_fichas': medir_cache_fichas(), 'inventario': medir_inventario(), 'historial': medir_historial(), 'ordenamiento': medir_ordenamiento(), 'guardado': medir_guardado()}
+def ejecutar_todo(rapido: bool = False) -> dict:
+    from src.servicios.banco_cazador import ejecutar_cazador
+    resultados = {'agenda': medir_agenda(), 'cache_fichas': medir_cache_fichas(), 'inventario': medir_inventario(), 'historial': medir_historial(), 'ordenamiento': medir_ordenamiento(), 'guardado': medir_guardado()}
+    # Segunda parte: terreno y cazador (specs/001-terreno-cazador, US5).
+    resultados.update(ejecutar_cazador(rapido))
+    return resultados
 
 def formatear(resultados: dict) -> str:
     lineas = []
     for subsistema, metricas in resultados.items():
         lineas.append(f'[{subsistema}]')
+        if isinstance(metricas, list):
+            lineas.extend(_formatear_filas(metricas))
+            continue
         for clave, valor in metricas.items():
             if isinstance(valor, float):
                 lineas.append(f'  {clave}: {valor * 1000:.3f} ms')
             else:
                 lineas.append(f'  {clave}: {valor}')
     return '\n'.join(lineas)
+
+
+def _formatear_filas(filas: list) -> list:
+    """Una línea por escenario con los campos del contrato de --bench."""
+    lineas = []
+    for fila in filas:
+        partes = []
+        for clave, valor in fila.items():
+            if clave == 'escenario':
+                continue
+            if isinstance(valor, float):
+                partes.append(f'{clave}={valor:.3f}')
+            else:
+                partes.append(f'{clave}={valor}')
+        lineas.append(f"  {fila['escenario']}: " + ' '.join(partes))
+    return lineas
