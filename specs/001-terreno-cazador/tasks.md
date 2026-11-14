@@ -61,12 +61,25 @@ demás.
 
 ### Generación de criptas: reglas comunes
 
-- **G1. Mismo camino que los datos reales.** Los generadores producen salas con la **misma forma
-  del esqueleto del servicio** (`{"id", "nombre", "salidas": {"N": {"sala", "costo"?, "cerrada"?,
-  "llave"?, "cierre_automatico"?}}}`) y la cripta se construye con el cargador real
-  (`_sala_desde_dict` y `Cripta.enlazar_puertas`). Así las pruebas ejercitan la lectura y la
-  validación del costo y no un atajo. Esos diccionarios son solo el formato de entrada, igual que
-  los de `respuesta.json()` (P1 §7).
+- **G1. Mismo camino que los datos reales.** El generador produce exactamente la estructura que
+  devuelve el servicio en `GET /criptas/<id>/salas?pagina=n`, y la cripta se construye con el
+  cargador real (`_sala_desde_dict` y `Cripta.enlazar_puertas`). Así las pruebas ejercitan la
+  lectura y la validación del costo y no un atajo. Esos diccionarios son solo el **formato de
+  entrada**, igual que los de `respuesta.json()` (P1 §7); el generador nunca los usa como índice ni
+  para buscar.
+  - **Salida de `cripta_sintetica`**: una `list` de salas ordenada por id ascendente (`1..n`).
+  - **Cada sala**: `{"id": int, "nombre": str, "salidas": {...}}`, con `nombre` igual a
+    `"Sala sintética <id>"`.
+  - **`salidas`**: claves solo entre `"N"`, `"S"`, `"E"`, `"O"`, insertadas siempre en ese orden y
+    solo para las conexiones que existen. Cada valor es `{"sala": int}` más, solo cuando aplican:
+    `"costo": int` (entero entre `costo_min` y `costo_max`; se omite si la conexión no declara
+    costo); `"cerrada": true` (se omite si está abierta); `"llave": str` (solo si está cerrada, con
+    la forma `"itm_llave_sint_<k>"`, donde `k` es el número de la conexión); y
+    `"cierre_automatico": int` (solo si se pidió).
+  - **Simetría en la salida**: los dos lados de una conexión llevan los mismos `costo`, `cerrada` y
+    `llave` (G2).
+  - **Paginación**: `paginar` envuelve las salas como el servicio:
+    `{"pagina": int, "total_paginas": int, "salas": [...]}`.
 - **G2. Coherencia del mapa.** Toda salida tiene su pareja en la dirección opuesta (N↔S, E↔O) con la
   misma sala de vuelta; ninguna sala usa dos veces la misma dirección; los ids son únicos; ninguna
   salida apunta a una sala inexistente; el costo es simétrico, y cuando se omite en un lado, el otro
@@ -76,10 +89,38 @@ demás.
   byte al serializarla.
 - **G4. Ids no correlacionados con la posición.** Los ids `1..n` se asignan con una permutación
   sembrada, para que el desempate por menor id (FR-014) se pruebe de verdad y no coincida por
-  casualidad con el orden de la cuadrícula.
+  casualidad con el orden de la cuadrícula. Su estructura es:
+  - **Posición**: cada celda `(fila, columna)` de la cuadrícula tiene la posición
+    `p = fila · ancho + columna`, en `0..n-1`, con `n = ancho · alto`.
+  - **`id_de_posicion`**: `list` de tamaño `n`. Empieza como `[1, 2, …, n]` y se baraja con
+    Fisher–Yates explícito: para `i` desde `n-1` hasta `1`, `j = rng.randrange(i + 1)` e intercambiar
+    las posiciones `i` y `j`. No se usa `random.shuffle`, para que el algoritmo quede escrito y
+    documentado.
+  - **`posicion_de_id`**: `list` de tamaño `n + 1` (la posición 0 no se usa), la inversa:
+    `posicion_de_id[id_de_posicion[p]] = p`.
+  - **Vecinas por posición**, sin buscar en ninguna tabla: N = `p - ancho` si `fila > 0`;
+    S = `p + ancho` si `fila < alto - 1`; E = `p + 1` si `columna < ancho - 1`; O = `p - 1` si
+    `columna > 0`.
+  - **Conexiones numeradas**: la conexión hacia el E de `p` tiene número `2p` y la conexión hacia el
+    S de `p` tiene número `2p + 1`. Las de O y N son las mismas vistas desde la otra sala. Todo el
+    estado de una conexión (`existe`, `en_arbol`, `costo`, `declara_costo`, `cerrada`) va en `list`
+    de tamaño `2n` indexadas por ese número.
+
+- **G5. Recorridos sin `set` ni `dict`.** Todo recorrido sobre el mapa, ya sea en el generador, en
+  sus pruebas, en la referencia o en `--bench`, marca las salas visitadas en una **`list` de
+  booleanos o de generación indexada** (por posición en el generador, por `Sala.indice` en el
+  modelo o por id en la referencia, con tamaño `n + 1`) y usa una `list` como pila o cola. Nunca se
+  usa `set`, `dict` ni `in` sobre una lista de visitadas.
 
 - [ ] T001 Implementar `src/servicios/generador_criptas.py`, usado tanto por las pruebas como por `--bench` (FR-035), con estas funciones:
-  - `cripta_sintetica(semilla, ancho, alto, costo_min=1, costo_max=300, prob_cerrada=0.0, prob_sin_costo=0.0, prob_hueco=0.0, conexa=True)`: cuadrícula `ancho × alto` donde cada sala se conecta con sus vecinas N, S, E, O. Pasos exactos: (1) permutación sembrada de ids (G4); (2) si `conexa`, construir primero un árbol de expansión con un recorrido en profundidad sembrado (pila propia en `list`) cuyas conexiones nunca se omiten; (3) para cada conexión restante, omitirla con probabilidad `prob_hueco`; (4) a cada conexión, un costo `randint(costo_min, costo_max)` declarado en ambos lados, o en ninguno con probabilidad `prob_sin_costo` (vale 100); (5) cerrar la puerta con probabilidad `prob_cerrada`, con una llave sintética, sin cerrar las del árbol si se pide `conexa_abierta`; devuelve la lista de salas con forma de esqueleto (G1);
+  - `cripta_sintetica(semilla, ancho, alto, costo_min=1, costo_max=300, prob_cerrada=0.0, prob_sin_costo=0.0, prob_hueco=0.0, conexa=True, conexa_abierta=False)`: cuadrícula `ancho × alto` donde cada sala se conecta con sus vecinas N, S, E, O. Usa una sola instancia `rng = random.Random(semilla)` y consume sus números **siempre en este orden**, para que la misma semilla dé la misma cripta (G3):
+    1. **Permutación de ids** con Fisher–Yates sobre `id_de_posicion` y cálculo de `posicion_de_id` (G4).
+    2. **Árbol de expansión** (solo si `conexa`): recorrido en profundidad desde la posición 0 con `visitada = [False] * n` (lista indexada por posición, G5) y `pila = [0]` (`list`). En cada paso se toma la posición de la cima, se juntan en una `list` sus vecinas no visitadas en orden N, S, E, O; si hay, se elige una con `rng.randrange(len(candidatas))`, se marca `en_arbol[numero_conexion] = True` y `visitada[v] = True`, y se apila; si no hay, se desapila. Termina con la pila vacía.
+    3. **Huecos**: se recorren las conexiones por número ascendente `0..2n-1` (solo las que existen en la cuadrícula); `existe[c] = en_arbol[c] or rng.random() >= prob_hueco` (si no es conexa, solo el sorteo).
+    4. **Costos**: por número ascendente, para cada conexión que existe, `declara_costo[c] = rng.random() >= prob_sin_costo` y, si declara, `costo[c] = rng.randint(costo_min, costo_max)`.
+    5. **Puertas cerradas**: por número ascendente, `cerrada[c] = rng.random() < prob_cerrada`, salvo que `conexa_abierta` y `en_arbol[c]`, en cuyo caso queda abierta.
+    6. **Salida**: para cada id de `1` a `n`, se toma `p = posicion_de_id[id]` y la función `_sala_esqueleto` escribe sus salidas en orden N, S, E, O con la estructura de G1 (único lugar del módulo que crea diccionarios; ver T005).
+  - El sorteo de cada paso se hace aunque su probabilidad sea 0, para que cambiar un parámetro no desplace los números aleatorios de los pasos siguientes;
   - `cripta_ampliada_x10(semilla, base, sala_jugador, rango)`: devuelve una cripta 10 veces más grande que `base` en la que la **región a distancia ≤ rango de `sala_jugador` es idéntica** a la de `base`. Las salas nuevas se cuelgan de una sala de la base que está fuera del rango, mediante un pasillo cuyo costo supera `rango`, para que ninguna sala nueva quede dentro de la región (SC-004);
   - `paginar(salas, tam_pagina, semilla=None)`: parte la lista en páginas como el servicio, en orden original o barajado con la semilla (para D5);
   - `ficha_cazador(id, rango, velocidad=100, ...)`: ficha de catálogo con `comportamiento: cazador` y `rango`;
@@ -87,8 +128,9 @@ demás.
 - [ ] T002 Escribir `tests/test_generador_criptas.py`, que verifica la corrección del generador antes de usarlo en cualquier otra prueba:
   - G3: la misma semilla produce la misma lista serializada; semillas distintas producen criptas distintas;
   - G2: cada salida tiene su pareja opuesta con el mismo costo y el mismo estado de puerta; no hay direcciones repetidas ni destinos inexistentes; los ids son exactamente `1..n`;
-  - G4: los ids no siguen el orden de la cuadrícula (la permutación no es la identidad para las semillas usadas);
-  - con `conexa=True` y sin puertas cerradas, toda sala es alcanzable desde la sala 1 (recorrido con estructuras propias); con `prob_hueco` alto y `conexa=False` aparece al menos una sala inalcanzable para alguna semilla fija;
+  - G1: la estructura coincide campo por campo con la de G1 (claves permitidas, orden N, S, E, O, campos opcionales omitidos cuando no aplican, tipos `int` y `str`, salas ordenadas por id);
+  - G4: `posicion_de_id` es la inversa exacta de `id_de_posicion`; los ids no siguen el orden de la cuadrícula (la permutación no es la identidad para las semillas usadas); con una semilla fija, la permutación coincide con un valor esperado escrito en la prueba, que detecta cambios accidentales en el orden de consumo de `rng`;
+  - con `conexa=True` y sin puertas cerradas, toda sala es alcanzable desde la sala 1, verificado con un recorrido que usa `visitada = [False] * (n + 1)` indexada por id y una `list` como pila (G5); con `prob_hueco` alto y `conexa=False` aparece al menos una sala inalcanzable para alguna semilla fija;
   - las proporciones de huecos, puertas cerradas y costos omitidos están dentro de ±5 puntos de lo pedido en una cripta de 10 000 salas;
   - `cripta_ampliada_x10`: tiene 10 veces las salas, y el conjunto de salas a distancia ≤ rango de la sala del jugador (calculado con la referencia de T025) es idéntico en ambas (este punto se activa cuando exista T025);
   - la cripta generada se carga sin error con el cargador real (G1). {FR-001, FR-002, FR-030, FR-035}
@@ -109,11 +151,12 @@ La constitución (Principio I) y FR-021 prohíben resolver los problemas evaluad
 conveniencia de Python o de bibliotecas. Esta fase empieza con una verificación automática para que
 la prohibición no dependa de revisiones manuales.
 
-- [ ] T005 Escribir `tests/test_restricciones.py`, una prueba estática con el módulo `ast` que recorre los archivos de la capacidad (`src/estructuras_datos/monticulo.py`, `src/estructuras_datos/registro_busqueda.py`, `src/modelos/rutas.py`, `src/modelos/cazador.py` y `tests/referencia_cazador.py`) y **falla** si encuentra:
+- [ ] T005 Escribir `tests/test_restricciones.py`, una prueba estática con el módulo `ast` que recorre los archivos de la capacidad (`src/estructuras_datos/monticulo.py`, `src/estructuras_datos/registro_busqueda.py`, `src/modelos/rutas.py`, `src/modelos/cazador.py`, `src/servicios/generador_criptas.py`, `tests/referencia_cazador.py` y `tests/test_generador_criptas.py`) y **falla** si encuentra:
   - importaciones de `heapq`, `bisect`, `collections` (incluidos `deque`, `OrderedDict`, `defaultdict`, `Counter`), `queue`, `networkx`, `functools.lru_cache` o `functools.cache`, ni ninguna biblioteca de grafos o de búsqueda de rutas;
   - literales o constructores de diccionario o conjunto (`{}`, `{k: v}`, `{a, b}`, `dict(...)`, `set(...)`, `frozenset(...)`) y comprensiones de diccionario o conjunto;
   - llamadas a `sorted(...)` o `.sort(...)` (P1 §4.9);
   - el mensaje de falla indica archivo, línea y construcción prohibida.
+  **Única excepción, acotada y verificada**: como G1 exige producir la forma JSON del esqueleto, se permiten literales de diccionario (`{k: v}`), nunca de conjunto, **solo** dentro de la función `_sala_esqueleto` de `src/servicios/generador_criptas.py`, que arma la salida, y en `tests/test_generador_criptas.py` para escribir la estructura esperada de G1. La prueba verifica que fuera de esos dos lugares no aparece ningún diccionario y que en ningún archivo aparece `set`, `frozenset` ni comprensiones de conjunto.
   La lista de archivos vigilados se amplía en cada tarea que crea un módulo nuevo de la capacidad. Se permite `list` como almacenamiento contiguo (P1 §7). {FR-021, FR-030}
 
 ### 2.2 Pruebas de la fase (escribir primero)
@@ -184,7 +227,7 @@ exhaustiva contra la referencia teórica.
 ### Referencia teórica (escribir primero, antes de cualquier búsqueda)
 
 - [ ] T025 [US2] Crear `tests/referencia_cazador.py`, la **referencia teórica** independiente del código del juego. Debe ser deliberadamente simple y no compartir código con `rutas.py`, `cazador.py` ni `monticulo.py`:
-  - `dist_referencia(cripta, origen, destino)`: búsqueda de costo mínimo **sin cota y sin reutilización**, que en cada paso escoge la sala pendiente de menor costo **recorriendo linealmente** la lista de pendientes (O(n²), sin montículo), solo por salidas con puerta abierta en ese instante, con enteros (D1) y orden de salidas N, S, E, O (D2);
+  - `dist_referencia(cripta, origen, destino)`: búsqueda de costo mínimo **sin cota y sin reutilización**, con distancias y marcas de asentada en `list` de tamaño `n + 1` **indexadas por id** (G5), que en cada paso escoge la sala pendiente de menor costo **recorriendo linealmente** los ids `1..n` (O(n²), sin montículo), solo por salidas con puerta abierta en ese instante, con enteros (D1) y orden de salidas N, S, E, O (D2);
   - `decision_referencia(cripta, cazador, jugador)`: aplica la regla del enunciado **literalmente**: misma sala → `ATACAR`; `d = dist_referencia(u, jugador)`; sin ruta o `d > rango` → `ESPERAR`; si no, calcula `dist_referencia(v, jugador)` **desde cada vecina** `v` por separado y elige con la clave D4;
   - devuelve una tupla comparable `(accion, id_vecina, direccion, costo_accion)`;
   - usa solo estructuras propias o `list` (vigilado por T005). {FR-013, FR-014, FR-015, FR-019}
@@ -315,7 +358,7 @@ recalcula y cuándo no.
 
 - [ ] T057 [US5] Conectar `src/servicios/banco_pruebas.py` con el generador de T001 (sin duplicarlo) y agregar la secuencia sembrada de cambios de puertas que usan los escenarios de puertas estables e inestables {FR-035}
 - [ ] T058 [US5] Agregar a `src/servicios/banco_pruebas.py` los escenarios de decisión del cazador (1 frente a 30, rango pequeño frente a grande, compartido frente a individual) y montículo frente a lista lineal (depende de T057) {FR-032}
-- [ ] T059 [US5] Agregar el escenario de reutilización frente a recalcular siempre, con puertas estables e inestables, reportando `busquedas` y `reutilizaciones` (depende de T057 y T049) {FR-033}
+- [ ] T059 [US5] Agregar el escenario de reutilización frente a recalcular siempre, con puertas estables e inestables, reportando `busquedas` y `reutilizaciones` (depende de T057 y T049). Estructuras del escenario (G5): las puertas candidatas a cambiar se eligen por **número de conexión** desde una `list` de números sembrada; para clasificar una puerta como alejada o cercana se consulta la lista indexada `asentada` del `RegistroBusqueda` por `Sala.indice` de sus dos salas (O(1) cada una); el registro de puertas ya cambiadas en una ronda es una `list` de booleanos de tamaño `2n` indexada por número de conexión, que se reinicia con una marca de generación. Sin `set` ni `dict` {FR-033}
 - [ ] T060 [US5] Agregar el escenario de escala ×1 frente a ×10 y el de ciclo de eventos con ≥ 30 cazadores, reportando `ms_max` (depende de T057; SC-003 y SC-004) {FR-030, FR-031}
 - [ ] T061 [US5] Repetir las mediciones de agenda e historial de retroceso de P1 con cazadores y costos variables en `src/servicios/banco_pruebas.py` (P2 §5.6) {FR-034}
 - [ ] T062 [US5] Ajustar `formatear` en `src/servicios/banco_pruebas.py` para imprimir los campos del contrato de `--bench` {FR-032, FR-033, FR-035}
