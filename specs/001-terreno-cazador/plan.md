@@ -98,11 +98,14 @@ src/
 │   ├── cargador_cripta.py      # MOD    leer y validar costo (FR-001, FR-008)
 │   ├── fabrica_fichas.py       # MOD    leer y validar rango (FR-009)
 │   ├── guardado.py             # MOD    costo en el formato binario; versión de formato
+│   ├── generador_criptas.py    # NUEVO  criptas sintéticas sembradas (pruebas y --bench)
 │   └── banco_pruebas.py        # MOD    criptas sintéticas y escenarios FR-032 a FR-035
 └── vistas/
     └── vista_consola.py        # MOD    costo por salida y marca de cazador (FR-023, FR-024)
 
 tests/
+├── test_generador_criptas.py   # NUEVO  corrección y reproducibilidad del generador
+├── test_restricciones.py       # NUEVO  prohibición de estructuras de conveniencia (ast)
 ├── test_monticulo.py           # NUEVO
 ├── test_registro_busqueda.py   # NUEVO
 ├── test_terreno.py             # NUEVO  FR-001 a FR-008 (US1, Apéndice B)
