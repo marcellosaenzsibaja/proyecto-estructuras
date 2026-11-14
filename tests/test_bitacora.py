@@ -73,3 +73,50 @@ class PruebasBitacora(unittest.TestCase):
             leer(self.ruta)
 if __name__ == '__main__':
     unittest.main()
+
+
+class PruebasReplayConCazadores(unittest.TestCase):
+    """T051: dos reproducciones del mismo log producen las mismas decisiones (FR-027, SC-005)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+
+    def _construir(self):
+        from src.modelos.fichas import CAZADOR, FichaEnemigo
+        cazador = FichaEnemigo('ent_cazador', 'Cazador', 18, 1, 2, 130, CAZADOR, (), None, 2000)
+        conexiones = [(1, 'N', 2, {'costo': 120}), (2, 'N', 3, {'costo': 80}), (3, 'E', 4, {'costo': 200}),
+                      (4, 'S', 5, {'costo': 60}), (5, 'O', 2, {'costo': 300}), (4, 'N', 6, {'costo': 90})]
+        return construir(conexiones, {1: ContenidoSala(enemigos=[('e-1', cazador, None), ('e-2', cazador, None)])}, [cazador], inicial=1)
+
+    def _traza(self, partida):
+        posiciones = []
+        for sala in partida.cripta.salas():
+            for e in sala.enemigos:
+                posiciones.append((e.id_actor, e.sala_id, None if e.evento is None else e.evento.tiempo))
+        posiciones.sort()
+        return posiciones
+
+    def test_replay_con_cazadores_FR027(self):
+        from src.modelos.acciones import ESPERAR, MOVER
+        from src.modelos.direcciones import ESTE, NORTE, OESTE, SUR
+        ruta = os.path.join(self._tmp.name, 'partida.log')
+        p = self._construir()
+        acciones = [Accion(MOVER, NORTE), Accion(MOVER, NORTE), Accion(MOVER, ESTE), Accion(MOVER, NORTE), Accion(ESPERAR), Accion(ESPERAR), Accion(ESPERAR)]
+        with Bitacora(ruta) as bitacora:
+            bitacora.iniciar(p.cripta.datos.id, p.cripta.datos.version, p.semilla)
+            p.iniciar()
+            for accion in acciones:
+                if p.estado != 'en_curso':
+                    break
+                p.ejecutar(accion)
+                bitacora.registrar(accion)
+        a = self._construir()
+        b = self._construir()
+        uno = reproducir(ruta, a.cripta, a.proveedor)
+        dos = reproducir(ruta, b.cripta, b.proveedor)
+        self.assertEqual(self._traza(uno), self._traza(dos))
+        self.assertEqual(self._traza(uno), self._traza(p))
+        self.assertEqual(uno.reloj.tiempo_virtual, p.reloj.tiempo_virtual)
+        movidos = [t for t in self._traza(p) if t[1] != 1]
+        self.assertTrue(movidos)  # los cazadores realmente persiguieron

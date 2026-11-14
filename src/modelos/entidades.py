@@ -17,7 +17,7 @@ class Trampa:
         self.evento_rearme = None
 
 class Puerta:
-    __slots__ = ('cerrada', 'llave', 'cierre_automatico', 'evento_cierre', 'abierta_por_jugador', 'costo', 'costo_declarado')
+    __slots__ = ('cerrada', 'llave', 'cierre_automatico', 'evento_cierre', 'abierta_por_jugador', 'costo', 'costo_declarado', 'extremos')
 
     def __init__(self, cerrada=False, llave=None, cierre_automatico=None, costo=100, costo_declarado=False):
         self.cerrada = cerrada
@@ -26,6 +26,8 @@ class Puerta:
         # Costo de tránsito, compartido por los dos lados de la conexión (FR-001, FR-002).
         self.costo = costo
         self.costo_declarado = costo_declarado
+        # Las dos salas que une; lo asigna Cripta.enlazar_puertas (research R6).
+        self.extremos = None
         self.evento_cierre = None
         self.abierta_por_jugador = False
 

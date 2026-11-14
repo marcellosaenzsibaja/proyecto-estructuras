@@ -19,6 +19,8 @@ COSTO_ATACAR = 100
 COSTO_ESPERAR = 100
 COMPARTIDO = 'compartido'
 INDIVIDUAL = 'individual'
+# Máximo de puertas cambiadas que se revisan una por una antes de recalcular (research R6).
+UMBRAL_PUERTAS = 32
 
 
 class Decision:
@@ -83,15 +85,42 @@ def _salida_hacia(sala, id_vecina: int):
 
 class DecisorCazadores:
 
-    def __init__(self, cripta, modo: str = COMPARTIDO):
+    def __init__(self, cripta, modo: str = COMPARTIDO, reutilizar: bool = True):
         if modo not in (COMPARTIDO, INDIVIDUAL):
             raise ValueError(f'Modo de decisión desconocido: {modo!r}')
         self.cripta = cripta
         self.modo = modo
+        self.reutilizar = reutilizar and modo == COMPARTIDO
         self.buscador = BuscadorRutas(cripta)
+        # Contadores de instrumentación (T048): no son estado del juego.
         self.busquedas = 0
         self.reutilizaciones = 0
         self.salas_examinadas_total = 0
+        # Estado de reutilización de la búsqueda compartida (T049).
+        self._valida = False
+        self._origen = None
+        self._generacion = -1
+        self._cambiadas = []
+        self._recalcular = False
+
+    def notificar_puerta(self, puerta):
+        """Anota un cambio de puerta; si hay demasiados, marca recalcular (research R6)."""
+        if not self._valida:
+            return
+        if len(self._cambiadas) >= UMBRAL_PUERTAS:
+            self._recalcular = True
+        else:
+            self._cambiadas.append(puerta)
+
+    def _puertas_alejadas(self) -> bool:
+        """Toda puerta cambiada tiene sus dos salas fuera de la región asentada del cálculo guardado."""
+        asentada = self.buscador.registro.marca_asentada
+        generacion = self._generacion
+        for puerta in self._cambiadas:
+            sala_a, sala_b = puerta.extremos
+            if asentada[sala_a.indice] == generacion or asentada[sala_b.indice] == generacion:
+                return False
+        return True
 
     def decidir(self, sala_cazador, rango: int, sala_jugador) -> Decision:
         """Decisión del cazador que está en sala_cazador frente al jugador en sala_jugador."""
@@ -103,13 +132,30 @@ class DecisorCazadores:
 
     def _decidir_compartido(self, sala_cazador, rango, sala_jugador):
         buscador = self.buscador
-        buscador.distancias_desde(sala_jugador, rango)
-        self.busquedas += 1
-        self.salas_examinadas_total += buscador.examinadas
+        if (self.reutilizar and self._valida and self._origen is sala_jugador
+                and not self._recalcular and self._puertas_alejadas()):
+            # Reutilizar: (1) misma sala del jugador, (2) sin marca de recalcular,
+            # (3) toda puerta cambiada está fuera de la región asentada (research R6).
+            self._cambiadas.clear()
+            self.reutilizaciones += 1
+            if rango > buscador.cota_alcanzada:
+                antes = buscador.examinadas
+                buscador.extender_hasta(rango)  # una cota mayor extiende, no recalcula
+                self.salas_examinadas_total += buscador.examinadas - antes
+        else:
+            buscador.distancias_desde(sala_jugador, rango)
+            self.busquedas += 1
+            self.salas_examinadas_total += buscador.examinadas
+            self._valida = True
+            self._origen = sala_jugador
+            self._generacion = buscador.registro.generacion
+            self._cambiadas.clear()
+            self._recalcular = False
         return regla_local(sala_cazador, rango, buscador.distancia)
 
     def _decidir_individual(self, sala_cazador, rango, sala_jugador):
         buscador = self.buscador
+        self._valida = False  # la búsqueda individual reemplaza a la compartida
         resultado = buscador.primer_paso_desde(sala_cazador, sala_jugador, rango)
         self.busquedas += 1
         self.salas_examinadas_total += buscador.examinadas

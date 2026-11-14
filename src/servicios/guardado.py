@@ -4,7 +4,7 @@ import struct
 from src.estructuras_datos.ordenamiento import ordenar
 from src.modelos.entidades import Objeto, Puerta, Salida, Enemigo, Trampa
 from src.modelos.errores import ErrorDatos
-from src.modelos.partida import EN_CURSO, Partida
+from src.modelos.partida import EN_CURSO, EV_ENEMIGO, Partida
 MAGIC = b'CRPT'
 # Versión 2: agrega el costo de cada puerta (P2, FR-001). Un archivo de la
 # versión 1 (primera parte) se rechaza como incompatible (FR-026).
@@ -34,7 +34,7 @@ def tomar_snapshot(partida) -> dict:
                 puertas.append(None)
                 continue
             puertas.append({'destino': salida.destino, 'cerrada': salida.puerta.cerrada, 'llave': salida.puerta.llave, 'abierta_por_jugador': salida.puerta.abierta_por_jugador, 'costo': salida.puerta.costo})
-        salas.append({'id': sala.id, 'rastro': sala.rastro, 'puertas': puertas, 'objetos': [{'uid': o.uid, 'id_ficha': o.ficha.id} for o in sala.objetos], 'enemigos': [{'instancia': e.id_actor, 'id_ficha': e.ficha.id, 'vida': e.vida, 'activo': e.activo} for e in sala.enemigos], 'trampas': [{'instancia': t.instancia, 'id_ficha': t.ficha.id, 'armada': t.armada} for t in sala.trampas]})
+        salas.append({'id': sala.id, 'rastro': sala.rastro, 'puertas': puertas, 'objetos': [{'uid': o.uid, 'id_ficha': o.ficha.id} for o in sala.objetos], 'enemigos': [{'instancia': e.id_actor, 'id_ficha': e.ficha.id, 'vida': e.vida, 'activo': e.activo, 'tiempo_siguiente': -1 if e.evento is None else e.evento.tiempo} for e in sala.enemigos], 'trampas': [{'instancia': t.instancia, 'id_ficha': t.ficha.id, 'armada': t.armada} for t in sala.trampas]})
     return {'cripta_id': partida.cripta.datos.id, 'version_cripta': partida.cripta.datos.version, 'semilla': partida.semilla, 'tiempo_virtual': partida.reloj.tiempo_virtual, 'acciones_jugador': partida.acciones_jugador, 'enemigos_derrotados': partida.enemigos_derrotados, 'estado': partida.estado, 'siguiente_uid': partida._siguiente_uid, 'jugador': {'vida': jugador.vida, 'sala_id': jugador.sala_id, 'inventario': inventario}, 'salas': salas}
 
 def version_compatible(snapshot: dict, cripta) -> bool:
@@ -76,7 +76,13 @@ def restaurar_partida(snapshot: dict, cripta, proveedor) -> Partida:
             sala.enemigos.append(enemigo)
             proveedor.fijar(ficha.id)
             if enemigo.activo and enemigo.vivo:
-                partida._programar_accion(enemigo, 100)
+                # Se restaura el instante exacto de su próximo turno para continuar
+                # con las mismas decisiones (FR-029); sin dato, la regla de P1.
+                siguiente = e.get('tiempo_siguiente', -1)
+                if siguiente >= partida.reloj.tiempo_virtual:
+                    enemigo.evento = partida.reloj.programar_evento(siguiente - partida.reloj.tiempo_virtual, EV_ENEMIGO, enemigo)
+                else:
+                    partida._programar_accion(enemigo, 100)
         sala.trampas = []
         for t in crudo['trampas']:
             ficha = proveedor.ficha(t['id_ficha'])
@@ -199,6 +205,7 @@ def _empacar_sala(crudo: dict) -> bytes:
         partes.append(_empacar_str(e['id_ficha']))
         partes.append(struct.pack('>i', e['vida']))
         partes.append(struct.pack('>B', 1 if e['activo'] else 0))
+        partes.append(struct.pack('>q', e['tiempo_siguiente']))
     partes.append(struct.pack('>H', len(crudo['trampas'])))
     for t in crudo['trampas']:
         partes.append(_empacar_str(t['instancia']))
@@ -246,7 +253,9 @@ def _desempacar_sala(buf, pos):
         pos += 4
         activo, = struct.unpack_from('>B', buf, pos)
         pos += 1
-        enemigos.append({'instancia': instancia, 'id_ficha': id_ficha, 'vida': vida, 'activo': bool(activo)})
+        tiempo_siguiente, = struct.unpack_from('>q', buf, pos)
+        pos += 8
+        enemigos.append({'instancia': instancia, 'id_ficha': id_ficha, 'vida': vida, 'activo': bool(activo), 'tiempo_siguiente': tiempo_siguiente})
     n_trampas, = struct.unpack_from('>H', buf, pos)
     pos += 2
     trampas = []

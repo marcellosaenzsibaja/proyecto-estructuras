@@ -57,6 +57,8 @@ class Cripta:
                     continue
                 destino = self.sala(salida.destino)
                 salida.sala_destino = destino
+                if salida.puerta.extremos is None:
+                    salida.puerta.extremos = (sala, destino)
                 contraria = destino.salidas[OPUESTA[direccion]]
                 if contraria is None or contraria.destino != sala.id or contraria.puerta is salida.puerta:
                     continue

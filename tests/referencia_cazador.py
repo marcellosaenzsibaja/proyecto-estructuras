@@ -140,3 +140,35 @@ def decision_desde_matriz(cripta, matriz, sala_cazador: int, rango: int, sala_ju
     if total != d:
         raise AssertionError('La referencia encontró una ruta inconsistente con d')
     return (MOVER, v, direccion, costo)
+
+
+def decision_desde_distancias_al_jugador(cripta, dist_al_jugador, sala_cazador: int, rango: int, sala_jugador: int):
+    """Decisión literal usando las distancias de cada sala AL jugador.
+
+    Como el costo es simétrico (FR-002), dist(v, jugador) = dist(jugador, v):
+    basta un recorrido lineal desde el jugador por paso de simulación. Se usa en
+    la prueba aleatoria larga (T046); las pruebas puntuales usan la versión que
+    calcula desde cada vecina.
+    """
+    if sala_cazador == sala_jugador:
+        return (ATACAR, None, None, 100)
+    d = dist_al_jugador[sala_cazador]
+    if d < 0 or d > rango:
+        return (ESPERAR, None, None, 100)
+    mejor = None
+    sala = cripta.sala(sala_cazador)
+    for direccion in range(4):
+        salida = sala.salidas[direccion]
+        if salida is None or salida.puerta.cerrada:
+            continue
+        v = salida.destino
+        dv = dist_al_jugador[v]
+        if dv < 0:
+            continue
+        clave = (salida.puerta.costo + dv, v, salida.puerta.costo, direccion)
+        if mejor is None or clave < mejor:
+            mejor = clave
+    total, v, costo, direccion = mejor
+    if total != d:
+        raise AssertionError('La referencia encontró una ruta inconsistente con d')
+    return (MOVER, v, direccion, costo)

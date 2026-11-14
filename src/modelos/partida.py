@@ -78,6 +78,8 @@ class Partida:
         self._grabando = False
         # Infraestructura de cálculo del cazador: no se guarda ni se revierte (FR-021).
         self._decisor = None
+        # Contador monotónico de cambios de puertas (infraestructura, research R6).
+        self.version_puertas = 0
         estadisticas = cripta.datos.jugador
         self.jugador = Jugador(estadisticas.vida_max, estadisticas.ataque, estadisticas.defensa, estadisticas.velocidad, cripta.datos.inventario_max)
 
@@ -423,7 +425,7 @@ class Partida:
             return _rechazo('Esta puerta no se puede abrir con una llave.')
         if not self._tiene_llave(puerta.llave):
             return _rechazo('No tienes la llave correcta.')
-        self._set_atributo(puerta, 'cerrada', False)
+        self._poner_cerrada(puerta, False)
         self._set_atributo(puerta, 'abierta_por_jugador', True)
         if puerta.cierre_automatico:
             self._programar_en(puerta, 'evento_cierre', puerta.cierre_automatico, EV_CIERRE, puerta)
@@ -432,7 +434,24 @@ class Partida:
 
     def _cerrar_puerta(self, puerta):
         self._set_atributo(puerta, 'evento_cierre', None)
-        self._set_atributo(puerta, 'cerrada', True)
+        self._poner_cerrada(puerta, True)
+
+    def _poner_cerrada(self, puerta, cerrada: bool):
+        """Único punto de cambio de Puerta.cerrada (abrir, cierre automático y deshacer; T047)."""
+        anterior = puerta.cerrada
+        puerta.cerrada = cerrada
+        self._notificar_puerta(puerta)
+
+        def deshacer():
+            puerta.cerrada = anterior
+            self._notificar_puerta(puerta)
+        self._registrar(deshacer)
+
+    def _notificar_puerta(self, puerta):
+        # No se revierte: deshacer también es un cambio y vuelve a incrementar.
+        self.version_puertas += 1
+        if self._decisor is not None:
+            self._decisor.notificar_puerta(puerta)
 
     def _atacar(self, instancia):
         objetivo = None

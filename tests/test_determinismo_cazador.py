@@ -41,6 +41,7 @@ def traza(semilla, modo=COMPARTIDO, semilla_paginas=None, pasos=60, cazadores=8)
         if sala.salidas[direccion] is not None:
             puerta = sala.salidas[direccion].puerta
             puerta.cerrada = not puerta.cerrada
+            decisor.notificar_puerta(puerta)  # como hace Partida._poner_cerrada (T047)
         for k in range(cazadores):
             decision = decisor.decidir(cripta.sala(posiciones[k]), rangos[k], cripta.sala(jugador))
             resultado.append((paso, k) + decision.como_tupla())

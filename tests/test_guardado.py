@@ -119,3 +119,43 @@ class PruebasCostoEnGuardado(unittest.TestCase):
         with self.assertRaises(ErrorDatos) as contexto:
             cargar_binario(ruta)
         self.assertIn('incompatible', str(contexto.exception))
+
+
+class PruebasPersecucionGuardada(unittest.TestCase):
+    """T052: guardar a mitad de una persecución, cargar y continuar con las mismas decisiones (FR-029)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+
+    def _construir(self):
+        from src.modelos.fichas import CAZADOR, FichaEnemigo
+        cazador = FichaEnemigo('ent_cazador', 'Cazador', 18, 1, 2, 70, CAZADOR, (), None, 5000)
+        conexiones = [(i, 'N', i + 1, {'costo': 40 + 13 * i}) for i in range(1, 12)]
+        return construir(conexiones, {12: ContenidoSala(enemigos=[('e-1', cazador, None), ('e-2', cazador, None)])}, [cazador], inicial=12)
+
+    def _estado(self, p):
+        resultado = []
+        for sala in p.cripta.salas():
+            for e in sala.enemigos:
+                resultado.append((e.id_actor, e.sala_id, e.evento.tiempo))
+        resultado.sort()
+        return resultado
+
+    def test_continua_igual_tras_cargar_FR029(self):
+        from src.modelos.acciones import ESPERAR, MOVER
+        from src.modelos.direcciones import SUR
+        original = self._construir()
+        original.iniciar()
+        for _ in range(6):
+            original.ejecutar(Accion(MOVER, SUR))
+        ruta = os.path.join(self._tmp.name, 'persecucion.bin')
+        guardar_binario(tomar_snapshot(original), ruta)
+        nueva = self._construir()
+        cargada = restaurar_partida(cargar_binario(ruta), nueva.cripta, nueva.proveedor)
+        self.assertEqual(self._estado(cargada), self._estado(original))
+        for _ in range(4):
+            original.ejecutar(Accion(ESPERAR))
+            cargada.ejecutar(Accion(ESPERAR))
+            self.assertEqual(self._estado(cargada), self._estado(original))
+            self.assertEqual(cargada.reloj.tiempo_virtual, original.reloj.tiempo_virtual)

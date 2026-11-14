@@ -299,34 +299,34 @@ recalcula y cuándo no.
 
 ### Tests for User Story 3 (escribir primero) ⚠️
 
-- [ ] T042 [P] [US3] En `tests/test_equivalencia_cazador.py`: US3-1 / Apéndice B (una puerta de la ruta se cierra entre turnos), US3-2 (se abre un atajo) y US3-3 (el jugador cambia de sala); en los tres la decisión es igual a `decision_referencia` y `busquedas` aumenta en 1 {FR-019, FR-020}
-- [ ] T043 [P] [US3] En `tests/test_reutilizacion_cazador.py`, **prueba de no recálculo ante puertas alejadas** (US3-4):
+- [X] T042 [P] [US3] En `tests/test_equivalencia_cazador.py`: US3-1 / Apéndice B (una puerta de la ruta se cierra entre turnos), US3-2 (se abre un atajo) y US3-3 (el jugador cambia de sala); en los tres la decisión es igual a `decision_referencia` y `busquedas` aumenta en 1 {FR-019, FR-020}
+- [X] T043 [P] [US3] En `tests/test_reutilizacion_cazador.py`, **prueba de no recálculo ante puertas alejadas** (US3-4):
   - cripta sintética sembrada grande (≥ 2 000 salas) con el jugador y los cazadores en una esquina y rango pequeño;
   - tras la primera decisión, abrir y cerrar 100 puertas alejadas (ambas salas fuera de la región asentada), incluido un cierre automático;
   - **afirmar** que en las decisiones siguientes `busquedas` **no cambia**, `salas_examinadas_total` **no cambia**, `reutilizaciones` aumenta en cada decisión, y cada decisión es igual a `decision_referencia`;
   - el docstring reproduce la demostración de research R6: una puerta con ambos extremos sin asentar no participó en ninguna distancia registrada, y abrirla no puede crear un camino de costo ≤ cota. {FR-020, FR-021}
-- [ ] T044 [P] [US3] En `tests/test_reutilizacion_cazador.py`, **casos que sí deben recalcular y casos que no**:
+- [X] T044 [P] [US3] En `tests/test_reutilizacion_cazador.py`, **casos que sí deben recalcular y casos que no**:
   - puerta con **una** sala dentro de la región asentada que se abre o se cierra → `busquedas` aumenta en 1;
   - puerta entre una sala de borde y una sala sin asentar → **no** recalcula;
   - más cambios de puerta que el umbral de la lista → recalcula sin revisar la lista;
   - aparece un cazador con rango mayor que la cota alcanzada → la búsqueda se **extiende** (`busquedas` no cambia y `salas_examinadas_total` aumenta solo con las salas nuevas); con rango menor o igual → no hay trabajo nuevo;
   - movimiento o muerte de otros enemigos y cambios de velocidad → `busquedas` **no** cambia (no alteran distancias). {FR-020, FR-021, FR-022}
-- [ ] T045 [P] [US3] En `tests/test_equivalencia_cazador.py`: US3-5, 30 cazadores con orden de cálculo distinto → misma decisión individual; US3-6, retroceso con pergamino → decisión según el estado restaurado e igual a la referencia {FR-020, FR-022, FR-028}
-- [ ] T046 [US3] En `tests/test_equivalencia_cazador.py`: prueba aleatoria sembrada de ≥ 10 000 decisiones en criptas sintéticas con puertas inestables, en modos compartido e individual **con la reutilización activada**, con cero diferencias frente a `decision_referencia` comparando la tupla completa; se reportan además `busquedas` y `reutilizaciones` para mostrar que la reutilización realmente ocurrió (depende de T025; SC-002) {FR-019, FR-020, FR-021, FR-022}
+- [X] T045 [P] [US3] En `tests/test_equivalencia_cazador.py`: US3-5, 30 cazadores con orden de cálculo distinto → misma decisión individual; US3-6, retroceso con pergamino → decisión según el estado restaurado e igual a la referencia {FR-020, FR-022, FR-028}
+- [X] T046 [US3] En `tests/test_equivalencia_cazador.py`: prueba aleatoria sembrada de ≥ 10 000 decisiones en criptas sintéticas con puertas inestables, en modos compartido e individual **con la reutilización activada**, con cero diferencias frente a `decision_referencia` comparando la tupla completa; se reportan además `busquedas` y `reutilizaciones` para mostrar que la reutilización realmente ocurrió (depende de T025; SC-002) {FR-019, FR-020, FR-021, FR-022}
 
 ### Implementation for User Story 3
 
-- [ ] T047 [US3] Agregar `version_puertas` (contador monotónico de infraestructura) en `src/modelos/partida.py` y un **único punto de cambio** de `Puerta.cerrada` (abrir con llave, cierre automático y deshacer del retroceso) que lo incremente y llame a `DecisorCazadores.notificar_puerta(puerta)` (research R6) {FR-020, FR-021}
-- [ ] T048 [US3] Agregar a `DecisorCazadores` los contadores `busquedas`, `reutilizaciones` y `salas_examinadas_total` en `src/modelos/cazador.py`, expuestos para pruebas y `--bench`, fuera del estado del juego {FR-021, FR-033}
-- [ ] T049 [US3] Implementar la reutilización en `src/modelos/cazador.py` con esta regla exacta (research R6):
+- [X] T047 [US3] Agregar `version_puertas` (contador monotónico de infraestructura) en `src/modelos/partida.py` y un **único punto de cambio** de `Puerta.cerrada` (abrir con llave, cierre automático y deshacer del retroceso) que lo incremente y llame a `DecisorCazadores.notificar_puerta(puerta)` (research R6) {FR-020, FR-021}
+- [X] T048 [US3] Agregar a `DecisorCazadores` los contadores `busquedas`, `reutilizaciones` y `salas_examinadas_total` en `src/modelos/cazador.py`, expuestos para pruebas y `--bench`, fuera del estado del juego {FR-021, FR-033}
+- [X] T049 [US3] Implementar la reutilización en `src/modelos/cazador.py` con esta regla exacta (research R6):
   - guardar con el cálculo: sala del jugador, cota, `generacion_cache` y una lista corta de puertas cambiadas desde entonces (con umbral fijo, por ejemplo 32);
   - `notificar_puerta(puerta)`: si la lista no superó el umbral, agregar la puerta; si lo superó, marcar «recalcular»;
   - antes de decidir, **reutilizar** solo si: (1) la sala del jugador es la misma, (2) no se marcó «recalcular» y (3) toda puerta de la lista tiene sus dos salas con `asentada[i] != generacion_cache`; si además la cota pedida es mayor que la alcanzada, se usa `extender_hasta` en lugar de recalcular; si se reutiliza, vaciar la lista;
   - en cualquier otro caso, recalcular con T036 y reemplazar lo guardado;
   - sin `dict`, `set` ni estructuras equivalentes de biblioteca (vigilado por T005). {FR-019, FR-020, FR-021}
-- [ ] T050 [US3] Verificar que el decisor, el registro, los contadores y `version_puertas` no entran al historial de retroceso, al guardado ni a `partida.log` (`src/modelos/partida.py`, `src/servicios/guardado.py`) {FR-021, FR-028, FR-029}
-- [ ] T051 [US3] Agregar prueba de `--replay` con cazadores en `tests/test_bitacora.py`: dos reproducciones del mismo log producen las mismas decisiones (SC-005) {FR-027}
-- [ ] T052 [US3] Agregar prueba en `tests/test_guardado.py`: guardar a mitad de una persecución, cargar y continuar con las mismas decisiones {FR-029}
+- [X] T050 [US3] Verificar que el decisor, el registro, los contadores y `version_puertas` no entran al historial de retroceso, al guardado ni a `partida.log` (`src/modelos/partida.py`, `src/servicios/guardado.py`) {FR-021, FR-028, FR-029}
+- [X] T051 [US3] Agregar prueba de `--replay` con cazadores en `tests/test_bitacora.py`: dos reproducciones del mismo log producen las mismas decisiones (SC-005) {FR-027}
+- [X] T052 [US3] Agregar prueba en `tests/test_guardado.py`: guardar a mitad de una persecución, cargar y continuar con las mismas decisiones {FR-029}
 
 **Checkpoint**: US1 a US3 funcionan; SC-002 se cumple y T043 demuestra el no recálculo.
 
