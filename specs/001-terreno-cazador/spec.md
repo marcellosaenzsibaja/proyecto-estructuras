@@ -212,6 +212,8 @@ con criptas sintéticas deterministas por semilla.
   y se reporta el error con la sala y la dirección afectadas, en lugar de jugar con datos dudosos.
 - Una ficha con comportamiento `cazador` sin campo `rango`: los datos del catálogo son inválidos y
   se reporta el error con el id de la ficha.
+- Solo uno de los dos lados de una conexión declara `costo`: ese valor vale en ambos sentidos. Si
+  los dos lo declaran con valores distintos, es error de datos.
 
 ## Requirements *(mandatory)*
 
@@ -221,7 +223,10 @@ con criptas sintéticas deterministas por semilla.
 
 - **FR-001**: Cada salida DEBE tener un costo de tránsito entero mayor o igual que 1. Si el
   esqueleto no lo declara, su costo DEBE ser 100.
-- **FR-002**: El costo de una salida DEBE ser el mismo en ambos sentidos.
+- **FR-002**: El costo de una salida DEBE ser el mismo en ambos sentidos. Si solo uno de los dos
+  lados de la conexión declara `costo`, ese valor vale para ambos sentidos; si ambos lo declaran
+  con valores distintos, DEBE reportarse como error de datos que identifique las salas y las
+  direcciones, y la cripta no se juega con ese dato.
 - **FR-003**: Moverse a través de una salida DEBE ser una acción cuyo costo base es el costo de esa
   salida, para todos los actores (jugador, errante, rastreador y cazador).
 - **FR-004**: El intervalo de toda acción DEBE seguir calculándose como
