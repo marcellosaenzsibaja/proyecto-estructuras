@@ -91,3 +91,9 @@
 - Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-constitution`)
 - Prompt: "ahora que tienes los 2 documentos elimina el commit anterior y crea de nuevo la constitucion tomando en cuenta los 2 documentos ,no a;adas lo siguiente a la constitucion :si hay una estructura que se pueda utilizar que recomiendes de estas ,arboles binarios ,grafos,hash preguntame antes"
 - Uso de la respuesta: rehacer `.specify/memory/constitution.md` v1.0.0 con base en ambos enunciados (P1 y P2), en la rama `paso-1-constitucion`.
+
+## Entrada 16
+- Fecha aproximada: 14 de noviembre de 2026
+- Herramienta: Claude Code (Anthropic) con spec-kit 1.4.1.dev0 (`/speckit-specify`)
+- Prompt: "Sí, paso 2". La descripción de la capacidad para `/speckit-specify` la redactó el asistente a partir de P2 §3.1, §3.2, §5.1, §5.2, §6.1, §6.3 y el Apéndice B, y quedó copiada textualmente en el campo **Input** de `specs/001-terreno-cazador/spec.md`.
+- Uso de la respuesta: generar `specs/001-terreno-cazador/spec.md` y su checklist de calidad en la rama `001-terreno-cazador`; el grupo revisa la especificación antes de `/speckit-clarify`.
