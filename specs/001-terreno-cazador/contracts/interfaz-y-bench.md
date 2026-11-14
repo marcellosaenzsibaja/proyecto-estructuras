@@ -26,6 +26,15 @@ fila incluye como mínimo:
 | `examinadas_media` | Salas examinadas promedio por decisión (o por búsqueda en el modo compartido) |
 | `ms_media` / `ms_max` | Tiempo medio y máximo |
 | `reutilizaciones` | Veces que se reutilizó un cálculo (solo en escenarios de reutilización) |
+| `ms_total` | Tiempo total, en las filas que miden un lote completo (cola de prioridad, revisión de P1); ahí `ms_max` no aplica |
+| `ms_max_bruto`, `repeticiones` | Solo en `ciclo_eventos`: peor tiempo observado sin filtrar y cantidad de repeticiones |
+| `resultado` | Solo en `ciclo_eventos`: `CUMPLE` si `ms_max < 20`, si no `NO CUMPLE` |
 
 Con la misma semilla, dos ejecuciones producen las mismas criptas sintéticas y los mismos valores de
 `examinadas_media` y `reutilizaciones`. Los tiempos varían según la máquina.
+
+**Medición del ciclo de eventos**: el escenario se repite 3 veces con la misma semilla, es decir,
+exactamente el mismo trabajo, y para cada acción del jugador se toma el mínimo de las
+repeticiones, como hace `timeit`. Así se descartan las interrupciones del sistema operativo, que
+en las mediciones de desarrollo produjeron picos aislados de 20 a 100 ms en ciclos que tardan
+unos 3 ms. `ms_max_bruto` se reporta igual, para no ocultar esos picos.

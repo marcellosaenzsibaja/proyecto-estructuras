@@ -102,7 +102,8 @@ src/
 │   ├── fabrica_fichas.py       # MOD    leer y validar rango (FR-009)
 │   ├── guardado.py             # MOD    costo en el formato binario; versión de formato
 │   ├── generador_criptas.py    # NUEVO  criptas sintéticas sembradas (pruebas y --bench)
-│   └── banco_pruebas.py        # MOD    criptas sintéticas y escenarios FR-032 a FR-035
+│   ├── banco_pruebas.py        # MOD    integra las secciones del cazador en --bench
+│   └── banco_cazador.py        # NUEVO  escenarios FR-032 a FR-035 (cazador, cola, reutilización, escala, ciclo, revisión P1)
 └── vistas/
     └── vista_consola.py        # MOD    costo por salida y marca de cazador (FR-023, FR-024)
 
