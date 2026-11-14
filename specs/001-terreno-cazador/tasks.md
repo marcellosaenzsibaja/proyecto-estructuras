@@ -341,11 +341,11 @@ recalcula y cuándo no.
 
 ### Tests for User Story 4 (escribir primero) ⚠️
 
-- [ ] T053 [P] [US4] En `tests/test_main.py` o un `tests/test_vista_consola.py` nuevo: US4-1 (cada salida con dirección y costo) y US4-2 (cazador marcado y distinto de otro enemigo) sobre el texto que genera la vista {FR-023, FR-024}
+- [X] T053 [P] [US4] En `tests/test_main.py` o un `tests/test_vista_consola.py` nuevo: US4-1 (cada salida con dirección y costo) y US4-2 (cazador marcado y distinto de otro enemigo) sobre el texto que genera la vista {FR-023, FR-024}
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Mostrar el costo de cada salida de la sala actual y la marca `[cazador]` en `src/vistas/vista_consola.py`, sin mostrar distancias ni rutas (contrato) {FR-023, FR-024}
+- [X] T054 [US4] Mostrar el costo de cada salida de la sala actual y la marca `[cazador]` en `src/vistas/vista_consola.py`, sin mostrar distancias ni rutas (contrato) {FR-023, FR-024}
 
 **Checkpoint**: la interfaz mínima de P2 §7.3 para esta capacidad está completa.
 

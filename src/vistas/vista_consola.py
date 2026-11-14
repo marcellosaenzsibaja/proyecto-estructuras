@@ -1,6 +1,6 @@
 from src.estructuras_datos.ordenamiento import ordenar
 from src.modelos.direcciones import LETRAS
-from src.modelos.fichas import ARMA, ARMADURA
+from src.modelos.fichas import ARMA, ARMADURA, CAZADOR
 AYUDA = 'Comandos:\n  mover <N|S|E|O>     (m)\n  abrir <N|S|E|O>     (ab)\n  atacar <número>     (a)    número de la lista de enemigos\n  esperar             (e)\n  recoger <número>    (r)    número de la lista del suelo\n  usar                (u)    objeto seleccionado\n  equipar             (eq)   objeto seleccionado\n  soltar              (so)   objeto seleccionado\n  sig / ant           recorrer el inventario\n  ordenar             (ord)  ver el inventario en orden alfabético\n  pergamino           (perg) deshace tu última decisión, si tienes uno\n  guardar [archivo]   (gu)   guarda la partida (.bin o .json)\n  cargar [archivo]    (ca)   retoma una partida guardada\n  puntajes            (pts)  mejores puntajes registrados\n  ayuda               (?)\n  salir'
 
 class VistaConsola:
@@ -50,14 +50,17 @@ class VistaConsola:
             estado = 'abierta'
             if salida.puerta.cerrada:
                 estado = f'cerrada (llave {salida.puerta.llave})'
-            print(f'  [{LETRAS[direccion]}] hacia sala {salida.destino}: {estado}')
+            # El costo de tránsito de cada salida de la sala actual (FR-023).
+            print(f'  [{LETRAS[direccion]}] hacia sala {salida.destino}: {estado}, costo {salida.puerta.costo}')
         if salidas == 0:
             print('  ninguna')
         print('Enemigos:')
         if not sala.enemigos:
             print('  ninguno')
         for i, e in enumerate(sala.enemigos, start=1):
-            print(f'  {i}. {e.nombre} ({e.id_actor}) vida {e.vida}/{e.vida_max}')
+            # Los cazadores se distinguen de los demás enemigos (FR-024).
+            marca = ' [cazador]' if e.comportamiento == CAZADOR else ''
+            print(f'  {i}. {e.nombre} ({e.id_actor}){marca} vida {e.vida}/{e.vida_max}')
         print('Suelo:')
         if not sala.objetos:
             print('  vacío')
