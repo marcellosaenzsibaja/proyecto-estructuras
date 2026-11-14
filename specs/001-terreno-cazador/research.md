@@ -151,3 +151,7 @@ validan con `--bench` durante la implementación (constitución, Principio VII).
   formato. Un archivo de la primera parte se detecta como incompatible por la validación de versión
   ya existente (FR-026, P1 §4.10). El esqueleto en caché ya se invalida por la versión nueva de la
   cripta. El conjunto completo de reglas de persistencia de la segunda parte se especifica en 004.
+- **Ajuste durante la implementación**: para que la partida cargada continúe con las mismas
+  decisiones (FR-029), el guardado incluye también el instante del próximo turno de cada enemigo;
+  P1 lo reprogramaba a 100 desde el momento de cargar. Además, al restaurar se vuelven a unir las
+  puertas de ambos lados con `Cripta.enlazar_puertas`, que P1 dejaba separadas.
