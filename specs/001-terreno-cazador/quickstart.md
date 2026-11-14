@@ -10,7 +10,7 @@
 ## 1. Pruebas de aceptación de la capacidad
 
 ```bash
-python -m pytest tests/test_terreno.py tests/test_cazador.py tests/test_equivalencia_cazador.py tests/test_rendimiento_cazador.py -v
+python -m pytest tests/test_restricciones.py tests/test_generador_criptas.py tests/test_terreno.py tests/test_cazador.py tests/test_determinismo_cazador.py tests/test_equivalencia_cazador.py tests/test_reutilizacion_cazador.py tests/test_rendimiento_cazador.py -v
 ```
 
 Resultado esperado: todas pasan. Cada prueba cita en su nombre o docstring el requisito que

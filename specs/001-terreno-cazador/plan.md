@@ -50,10 +50,10 @@ a la de un cálculo desde cero (FR-019 a FR-022).
 
 | Principio | Cumplimiento en este plan | Estado |
 |---|---|---|
-| I. Estructuras propias | Montículo binario propio (R1) y registros en `list` con generación (R2). Sin `dict`, `set`, `heapq` ni equivalentes. La implementación de referencia de pruebas también usa estructuras propias. | ✅ |
-| II. Determinismo | Orden del montículo por (costo, índice). Desempate explícito FR-014 y FR-015. Índice compacto según el orden de carga. Criptas sintéticas sembradas. | ✅ |
+| I. Estructuras propias | Montículo binario propio (R1) y registros en `list` con generación (R2). Sin `dict`, `set`, `heapq` ni equivalentes. La referencia de pruebas y todos los recorridos usan `list` indexadas (G5 de tasks.md). El generador de criptas sintéticas escribe **texto JSON** y solo se leen los diccionarios que produce `json.loads`, lo único que autoriza la constitución. `tests/test_restricciones.py` lo verifica automáticamente con `ast`, sin excepciones. | ✅ |
+| II. Determinismo | Orden del montículo por (costo, índice). Desempate explícito FR-014 y FR-015 (clave D4). Las decisiones no dependen del índice compacto (D5). Una sola `random.Random(semilla)` en el generador, con orden fijo de consumo y Fisher–Yates escrito a mano (G3, G4). | ✅ |
 | III. MVC | `rutas.py` y `cazador.py` son modelo puro. La vista solo agrega presentación (costos y marca de cazador). `--bench` no instancia la vista. | ✅ |
-| IV. Sin datos de cripta | Costos y rango vienen del esqueleto y del catálogo. Ningún id ni costo en el código. | ✅ |
+| IV. Sin datos de cripta | Costos y rango vienen del esqueleto y del catálogo. Ningún id ni costo de una cripta publicada en el código; los nombres y llaves sintéticos del generador (`itm_llave_sint_<k>`) no corresponden a ninguna cripta del servicio. | ✅ |
 | V. Presupuesto de red | El costo viene en el esqueleto y el rango en el catálogo: cero solicitudes nuevas (FR-025). | ✅ |
 | VI. Estado reversible | Los cachés de rutas, `version_puertas` y el registro son infraestructura: no se guardan ni se revierten. El retroceso de P1 sigue registrando deltas, sin copias. | ✅ |
 | VII. Rendimiento medido | Escenarios de `--bench` de FR-032 a FR-035, incluida la alternativa ingenua (lista lineal y recalcular siempre). | ✅ |
@@ -111,6 +111,9 @@ tests/
 ├── test_terreno.py             # NUEVO  FR-001 a FR-008 (US1, Apéndice B)
 ├── test_cazador.py             # NUEVO  FR-009 a FR-018 (US2, Apéndice B)
 ├── test_equivalencia_cazador.py# NUEVO  FR-019 a FR-022, SC-002 (US3)
+├── test_determinismo_cazador.py# NUEVO  trazas idénticas, orden de carga, modos (US2)
+├── test_reutilizacion_cazador.py# NUEVO no recálculo ante puertas alejadas (US3)
+├── utilidades_cripta.py        # NUEVO  criptas escritas a mano como texto JSON
 ├── test_rendimiento_cazador.py # NUEVO  FR-030, SC-004 (conteo de salas examinadas)
 ├── referencia_cazador.py       # NUEVO  implementación de referencia desde cero (solo pruebas)
 └── (pruebas existentes de P1)  # deben seguir pasando (SC-007)
@@ -132,7 +135,7 @@ en `src/modelos/` porque es lógica del juego. Las estructuras genéricas van en
 | Ciclo de eventos | Tiempo máximo entre decisiones del jugador con ≥ 30 cazadores | FR-031, SC-003 |
 | Revisión de P1 | Agenda e historial de retroceso con cazadores y costos variables | FR-034, P2 §5.6 |
 
-Las criptas sintéticas son cuadrículas con costos aleatorios sembrados y puertas que se abren y
+Las criptas sintéticas (`src/servicios/generador_criptas.py`, reglas G1 a G5 de tasks.md) son cuadrículas con costos aleatorios sembrados y puertas que se abren y
 cierran según la semilla (FR-035).
 
 ## Riesgos y límites conocidos

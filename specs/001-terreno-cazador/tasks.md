@@ -61,13 +61,19 @@ demás.
 
 ### Generación de criptas: reglas comunes
 
-- **G1. Mismo camino que los datos reales.** El generador produce exactamente la estructura que
-  devuelve el servicio en `GET /criptas/<id>/salas?pagina=n`, y la cripta se construye con el
-  cargador real (`_sala_desde_dict` y `Cripta.enlazar_puertas`). Así las pruebas ejercitan la
-  lectura y la validación del costo y no un atajo. Esos diccionarios son solo el **formato de
-  entrada**, igual que los de `respuesta.json()` (P1 §7); el generador nunca los usa como índice ni
-  para buscar.
-  - **Salida de `cripta_sintetica`**: una `list` de salas ordenada por id ascendente (`1..n`).
+- **G1. Mismo camino que los datos reales, como texto JSON.** El generador **no crea
+  diccionarios**: escribe el esqueleto como **texto JSON** con exactamente la estructura que devuelve
+  el servicio en `GET /criptas/<id>/salas?pagina=n`. Ese texto se lee con `json.loads`, igual que
+  `--offline` lee sus archivos, y la cripta se construye con el cargador real (`_sala_desde_dict` y
+  `Cripta.enlazar_puertas`). Así los únicos diccionarios que existen son **los que produce la
+  lectura de JSON y solo se leen**, que es lo que permite la constitución (Principio I, P1 §7). Las
+  pruebas ejercitan además la misma lectura y validación del costo que los datos reales.
+  - **Cómo se escribe el texto**: con una `list` de fragmentos de texto que se une al final con
+    `"".join(...)`. Los textos se escriben con `json.dumps` aplicado **solo a valores escalares**
+    (`int` y `str`), nunca a diccionarios. Ninguna parte del generador usa `{...}`, `dict(...)` ni
+    `set(...)`.
+  - **Salida de `cripta_sintetica`**: una `list` de `str`, un fragmento de texto JSON por sala,
+    ordenada por id ascendente (`1..n`).
   - **Cada sala**: `{"id": int, "nombre": str, "salidas": {...}}`, con `nombre` igual a
     `"Sala sintética <id>"`.
   - **`salidas`**: claves solo entre `"N"`, `"S"`, `"E"`, `"O"`, insertadas siempre en ese orden y
@@ -78,8 +84,8 @@ demás.
     `"cierre_automatico": int` (solo si se pidió).
   - **Simetría en la salida**: los dos lados de una conexión llevan los mismos `costo`, `cerrada` y
     `llave` (G2).
-  - **Paginación**: `paginar` envuelve las salas como el servicio:
-    `{"pagina": int, "total_paginas": int, "salas": [...]}`.
+  - **Paginación**: `paginar` une los fragmentos en textos de página con la forma del servicio,
+    `{"pagina": int, "total_paginas": int, "salas": [...]}`, también por concatenación de texto.
 - **G2. Coherencia del mapa.** Toda salida tiene su pareja en la dirección opuesta (N↔S, E↔O) con la
   misma sala de vuelta; ninguna sala usa dos veces la misma dirección; los ids son únicos; ninguna
   salida apunta a una sala inexistente; el costo es simétrico, y cuando se omite en un lado, el otro
@@ -119,23 +125,24 @@ demás.
     3. **Huecos**: se recorren las conexiones por número ascendente `0..2n-1` (solo las que existen en la cuadrícula); `existe[c] = en_arbol[c] or rng.random() >= prob_hueco` (si no es conexa, solo el sorteo).
     4. **Costos**: por número ascendente, para cada conexión que existe, `declara_costo[c] = rng.random() >= prob_sin_costo` y, si declara, `costo[c] = rng.randint(costo_min, costo_max)`.
     5. **Puertas cerradas**: por número ascendente, `cerrada[c] = rng.random() < prob_cerrada`, salvo que `conexa_abierta` y `en_arbol[c]`, en cuyo caso queda abierta.
-    6. **Salida**: para cada id de `1` a `n`, se toma `p = posicion_de_id[id]` y la función `_sala_esqueleto` escribe sus salidas en orden N, S, E, O con la estructura de G1 (único lugar del módulo que crea diccionarios; ver T005).
+    6. **Salida**: para cada id de `1` a `n`, se toma `p = posicion_de_id[id]` y la función `_texto_sala` arma el fragmento de texto JSON de esa sala con sus salidas en orden N, S, E, O y la estructura de G1, uniendo fragmentos de una `list` con `"".join`; los valores escalares pasan por `json.dumps`. No se crea ningún diccionario.
   - El sorteo de cada paso se hace aunque su probabilidad sea 0, para que cambiar un parámetro no desplace los números aleatorios de los pasos siguientes;
-  - `cripta_ampliada_x10(semilla, base, sala_jugador, rango)`: devuelve una cripta 10 veces más grande que `base` en la que la **región a distancia ≤ rango de `sala_jugador` es idéntica** a la de `base`. Las salas nuevas se cuelgan de una sala de la base que está fuera del rango, mediante un pasillo cuyo costo supera `rango`, para que ninguna sala nueva quede dentro de la región (SC-004);
-  - `paginar(salas, tam_pagina, semilla=None)`: parte la lista en páginas como el servicio, en orden original o barajado con la semilla (para D5);
-  - `ficha_cazador(id, rango, velocidad=100, ...)`: ficha de catálogo con `comportamiento: cazador` y `rango`;
-  - sin `dict` ni `set` como índice o registro interno (solo los diccionarios de salida con forma de esqueleto, G1). {FR-001, FR-002, FR-030, FR-035}
+  - `cripta_ampliada_x10(semilla, parametros_base, sala_jugador, rango)`: regenera la base con la misma semilla y parámetros (sus listas internas de G4, no texto ya leído) y devuelve una cripta 10 veces más grande en la que la **región a distancia ≤ rango de `sala_jugador` es idéntica** a la de `base`. Las salas nuevas se cuelgan de una sala de la base que está fuera del rango, mediante un pasillo cuyo costo supera `rango`, para que ninguna sala nueva quede dentro de la región (SC-004);
+  - `paginar(fragmentos, tam_pagina, semilla=None)`: parte la lista de fragmentos en textos de página como el servicio, en orden original o barajado con Fisher–Yates sembrado (para D5);
+  - `ficha_cazador(id, rango, velocidad=100, ...)`: texto JSON de una ficha de catálogo con `comportamiento: cazador` y `rango`, armado igual que las salas;
+  - `cargar_cripta_sintetica(paginas)`: entrega los textos mediante una fuente en memoria que implementa la misma interfaz de fuente de datos que usa `--offline` (`src/adaptadores/fuente_datos.py`, P1 §3.4), la cual lee cada texto con `json.loads`, y construye la `Cripta` con el cargador real (G1). Así el modelo no distingue datos sintéticos de datos del servicio;
+  - ningún `dict` ni `set` en todo el módulo: todo el estado interno va en `list` indexadas (G4, G5). {FR-001, FR-002, FR-030, FR-035}
 - [ ] T002 Escribir `tests/test_generador_criptas.py`, que verifica la corrección del generador antes de usarlo en cualquier otra prueba:
-  - G3: la misma semilla produce la misma lista serializada; semillas distintas producen criptas distintas;
+  - G3: la misma semilla produce exactamente los mismos textos (comparación de `str`); semillas distintas producen textos distintos;
   - G2: cada salida tiene su pareja opuesta con el mismo costo y el mismo estado de puerta; no hay direcciones repetidas ni destinos inexistentes; los ids son exactamente `1..n`;
-  - G1: la estructura coincide campo por campo con la de G1 (claves permitidas, orden N, S, E, O, campos opcionales omitidos cuando no aplican, tipos `int` y `str`, salas ordenadas por id);
+  - G1: cada fragmento es JSON válido; al **leerlo** con `json.loads`, la estructura coincide campo por campo con G1 (claves permitidas comparadas contra una `list` de nombres, orden N, S, E, O, campos opcionales omitidos cuando no aplican, tipos `int` y `str`, salas ordenadas por id). La prueba solo lee los diccionarios producidos por `json.loads`; no escribe ninguno;
   - G4: `posicion_de_id` es la inversa exacta de `id_de_posicion`; los ids no siguen el orden de la cuadrícula (la permutación no es la identidad para las semillas usadas); con una semilla fija, la permutación coincide con un valor esperado escrito en la prueba, que detecta cambios accidentales en el orden de consumo de `rng`;
   - con `conexa=True` y sin puertas cerradas, toda sala es alcanzable desde la sala 1, verificado con un recorrido que usa `visitada = [False] * (n + 1)` indexada por id y una `list` como pila (G5); con `prob_hueco` alto y `conexa=False` aparece al menos una sala inalcanzable para alguna semilla fija;
   - las proporciones de huecos, puertas cerradas y costos omitidos están dentro de ±5 puntos de lo pedido en una cripta de 10 000 salas;
   - `cripta_ampliada_x10`: tiene 10 veces las salas, y el conjunto de salas a distancia ≤ rango de la sala del jugador (calculado con la referencia de T025) es idéntico en ambas (este punto se activa cuando exista T025);
   - la cripta generada se carga sin error con el cargador real (G1). {FR-001, FR-002, FR-030, FR-035}
-- [ ] T003 Crear `tests/utilidades_cripta.py` con constructores de criptas pequeñas **escritas a mano** para los escenarios de aceptación: `cripta_desde_conexiones([(id_a, dir, id_b, costo, cerrada, llave), ...])`, que crea automáticamente la salida opuesta y aplica G1 y G2 (lanza error si se repite una dirección o una conexión es incoherente), más ayudas para colocar al jugador y a los cazadores, reutilizando `tests/utilidades.py` {FR-001, FR-011}
-- [ ] T004 Ejecutar `python -m pytest -q` y registrar que la batería de P1 pasa antes de empezar (línea base de SC-007) {SC-007}
+- [ ] T003 Crear `tests/utilidades_cripta.py` con constructores de criptas pequeñas **escritas a mano** para los escenarios de aceptación: `cripta_desde_conexiones([(id_a, dir, id_b, costo, cerrada, llave), ...])`, que crea automáticamente la salida opuesta, arma el texto JSON con las mismas funciones de texto de T001 (sin crear diccionarios), lo carga con `cargar_cripta_sintetica` y aplica G1 y G2 (lanza error si se repite una dirección o una conexión es incoherente), más ayudas para colocar al jugador y a los cazadores, reutilizando `tests/utilidades.py` {FR-001, FR-011}
+- [ ] T004 Ejecutar `python -m pytest -q` y registrar que la batería de P1 pasa antes de empezar (línea base de SC-007) {FR-005, FR-007, SC-007}
 
 ---
 
@@ -151,12 +158,12 @@ La constitución (Principio I) y FR-021 prohíben resolver los problemas evaluad
 conveniencia de Python o de bibliotecas. Esta fase empieza con una verificación automática para que
 la prohibición no dependa de revisiones manuales.
 
-- [ ] T005 Escribir `tests/test_restricciones.py`, una prueba estática con el módulo `ast` que recorre los archivos de la capacidad (`src/estructuras_datos/monticulo.py`, `src/estructuras_datos/registro_busqueda.py`, `src/modelos/rutas.py`, `src/modelos/cazador.py`, `src/servicios/generador_criptas.py`, `tests/referencia_cazador.py` y `tests/test_generador_criptas.py`) y **falla** si encuentra:
+- [ ] T005 Escribir `tests/test_restricciones.py`, una prueba estática con el módulo `ast` que recorre los archivos de la capacidad (`src/estructuras_datos/monticulo.py`, `src/estructuras_datos/registro_busqueda.py`, `src/modelos/rutas.py`, `src/modelos/cazador.py`, `src/servicios/generador_criptas.py`, `tests/referencia_cazador.py`, `tests/test_generador_criptas.py` y `tests/utilidades_cripta.py`) y **falla** si encuentra:
   - importaciones de `heapq`, `bisect`, `collections` (incluidos `deque`, `OrderedDict`, `defaultdict`, `Counter`), `queue`, `networkx`, `functools.lru_cache` o `functools.cache`, ni ninguna biblioteca de grafos o de búsqueda de rutas;
   - literales o constructores de diccionario o conjunto (`{}`, `{k: v}`, `{a, b}`, `dict(...)`, `set(...)`, `frozenset(...)`) y comprensiones de diccionario o conjunto;
   - llamadas a `sorted(...)` o `.sort(...)` (P1 §4.9);
   - el mensaje de falla indica archivo, línea y construcción prohibida.
-  **Única excepción, acotada y verificada**: como G1 exige producir la forma JSON del esqueleto, se permiten literales de diccionario (`{k: v}`), nunca de conjunto, **solo** dentro de la función `_sala_esqueleto` de `src/servicios/generador_criptas.py`, que arma la salida, y en `tests/test_generador_criptas.py` para escribir la estructura esperada de G1. La prueba verifica que fuera de esos dos lugares no aparece ningún diccionario y que en ningún archivo aparece `set`, `frozenset` ni comprensiones de conjunto.
+  **Sin excepciones**: como el generador escribe texto JSON (G1), ningún archivo vigilado necesita literales de diccionario. Se permite leer los diccionarios que devuelve `json.loads`, que es lo que autoriza la constitución.
   La lista de archivos vigilados se amplía en cada tarea que crea un módulo nuevo de la capacidad. Se permite `list` como almacenamiento contiguo (P1 §7). {FR-021, FR-030}
 
 ### 2.2 Pruebas de la fase (escribir primero)
@@ -372,9 +379,9 @@ recalcula y cuándo no.
 - [ ] T063 Ejecutar `python main.py --bench`, elegir el modo por defecto (compartido o individual) según la medición y fijarlo en `src/modelos/cazador.py` {FR-031, FR-032}
 - [ ] T064 Escribir en `DECISIONES.md` las secciones de P2 §5.1 y §5.2 con la estructura de P1 §8, enlazando a [spec.md](spec.md) y [plan.md](plan.md), e indicando si la decisión final coincide con el plan y qué medición motivó un cambio {FR-030, FR-031, FR-032, FR-033}
 - [ ] T065 Escribir en `DECISIONES.md` la parte de P2 §5.6 correspondiente a esta capacidad (agenda e historial con la carga nueva: antes y después, o datos que muestran que siguen siendo adecuados) {FR-034}
-- [ ] T066 Actualizar `README.md` con cómo ejecutar las pruebas de aceptación de esta capacidad (ver [quickstart.md](quickstart.md)) {SC-001}
+- [ ] T066 Actualizar `README.md` con cómo ejecutar las pruebas de aceptación de esta capacidad (ver [quickstart.md](quickstart.md)), incluidos `--bench` y los criterios que se verifican {FR-031, FR-035, SC-001}
 - [ ] T067 Confirmar que `tests/test_restricciones.py` (T005) vigila todos los módulos nuevos de la capacidad y pasa {FR-021}
-- [ ] T068 Ejecutar `python -m pytest -q` completo y validar [quickstart.md](quickstart.md) de punta a punta {SC-001, SC-005, SC-007}
+- [ ] T068 Ejecutar `python -m pytest -q` completo y validar [quickstart.md](quickstart.md) de punta a punta {FR-005, FR-007, FR-027, SC-001, SC-005, SC-007}
 
 ---
 
