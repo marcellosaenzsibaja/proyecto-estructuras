@@ -40,3 +40,9 @@
 - Se integran los comandos y opciones CLI requeridos (`--verificar <cripta>`, `--forzar`, `--bench`, `--offline`).
 - El presupuesto de red y persistencia por versión de cripta queda especificado en FR-021 a FR-024 y SC-007.
 - La restricción de rendimiento lineal O(|V| + |E| + |llaves|) en < 200 ms y la no repetición de recorridos quedan acotadas en FR-026 a FR-030 y SC-003 a SC-004.
+- En la sesión de clarificación `/speckit-clarify` (2026-11-17) se resolvieron 5 decisiones clave de dominio e interfaz:
+  - Códigos de salida para `--verificar` (0: resoluble, 1: no resoluble, 2: error).
+  - Desempate canónico de obtención de llaves por orden alfanumérico creciente de `id`.
+  - Ubicación directa de llaves desde el campo `sala` de `GET /criptas/<id>/llaves` (sin consultas HTTP de contenido adicionales).
+  - Formato canónico cerrado de ciclos `[L1 -> L2 -> L1]` iniciando en la llave lexicográficamente menor.
+  - Transición inmediata no bloqueante entre el reporte y la vista interactiva al iniciar partida.

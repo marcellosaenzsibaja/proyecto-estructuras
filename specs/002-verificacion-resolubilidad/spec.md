@@ -28,13 +28,21 @@ Esta capacidad implementa la verificación estática previa al inicio de una par
 
 ## Clarifications
 
+### Session 2026-11-17
+
+- Q: ¿Qué código de salida (exit code) debe devolver el proceso al ejecutar la opción `--verificar <cripta>` cuando la cripta evaluada resulta no ser resoluble? → A: Código 0 si es resoluble, código 1 si es no resoluble, y código 2 ante errores de red, datos o presupuesto.
+- Q: ¿Cuál debe ser el criterio canónico de desempate cuando existen varias llaves disponibles para recolectar en una misma etapa de la exploración? → A: Orden alfanumérico lexicográfico creciente por el identificador (`id`) de la llave.
+- Q: En la respuesta de `GET /criptas/<id>/llaves`, ¿el campo `sala` que indica cada llave corresponde directamente a la sala inicial donde se considera obtenible (incluso si la porta un enemigo)? → A: Sí, el endpoint entrega para cada llave su `id`, la `sala` (que para enemigos es su sala inicial) y opcionalmente el identificador de la instancia de enemigo si aplica, sin requerir descargas adicionales.
+- Q: ¿Cómo debe formatearse y ordenarse canónicamente la detección de ciclos de llaves en el reporte para asegurar su determinismo? → A: Cada ciclo se representa como una secuencia circular cerrada que inicia en la llave de menor `id` lexicográfico del ciclo (ej. `[llave_a -> llave_b -> llave_a]`), y si existen varios ciclos independientes, se listan ordenados por su llave inicial.
+- Q: Al iniciar una partida normal (sin `--verificar`), ¿cómo debe realizarse la transición entre la visualización del reporte y el comienzo del juego interactivo? → A: Imprimir el reporte de verificación y pasar inmediatamente a la vista interactiva sin pausar ni bloquear por teclado.
+
 ### Reglas de dominio fijadas
 
-- **Ubicación de llaves**: Si la llave está en el suelo de una sala, su sala de obtención es esa misma sala. Si la llave la suelta un enemigo (`suelta`), se considera obtenible en la sala donde ese enemigo inicia su recorrido (su sala inicial en el esqueleto de la cripta), asumiendo que todo enemigo puede ser derrotado.
-- **Determinismo ante múltiples órdenes válidos**: Si varias llaves pueden obtenerse en etapas independientes o en paralelo, dos ejecuciones sobre la misma cripta deben producir exactamente el mismo orden de obtención de llaves (por ejemplo, priorizando identificadores de llaves o salas en orden canónico).
+- **Ubicación de llaves**: Cada registro de llave entregado por `GET /criptas/<id>/llaves` contiene su identificador, la sala donde se ubica para la verificación (que para llaves portadas por un enemigo corresponde directamente a la sala inicial donde este aparece) y opcionalmente el id de la instancia del enemigo. La verificación no requiere realizar consultas adicionales de contenido de salas para localizar llaves.
+- **Determinismo ante múltiples órdenes válidos**: Si varias llaves pueden obtenerse en una misma etapa de exploración o en paralelo, el desempate se resuelve por orden alfanumérico lexicográfico creciente del identificador de la llave (`id`), garantizando que dos ejecuciones sobre la misma cripta produzcan exactamente la misma secuencia.
 - **Cierre y trampas automáticas**: Durante la verificación no se consideran los bloqueos dinámicos por trampas o puertas con autocierre, ya que el jugador puede volver a abrir cualquier puerta cerrada una vez que posee su llave.
-- **Ciclos de llaves**: Un ciclo se produce cuando una llave se encuentra detrás de una o más puertas que requieren de la propia llave para ser abiertas (sea directamente o a través de una cadena de llaves dependientes). El reporte debe identificar la secuencia circular concreta de llaves involucradas de forma determinista.
-- **Modo `--forzar`**: Permite al jugador iniciar y jugar una cripta no resoluble, mostrando siempre el reporte diagnóstico antes de ingresar a la vista interactiva.
+- **Ciclos de llaves**: Un ciclo se produce cuando una llave se encuentra detrás de una o más puertas que requieren de la propia llave para ser abiertas (sea directamente o a través de una cadena de llaves dependientes). Cada ciclo se representa canónicamente como una secuencia cerrada comenzando por la llave lexicográficamente menor del ciclo (por ejemplo, `[llave_1 -> llave_2 -> llave_1]`), y si existen varios ciclos independientes, se presentan ordenados alfabéticamente por su llave inicial.
+- **Modo `--forzar` e inicio**: Permite al jugador iniciar y jugar una cripta no resoluble, mostrando siempre el reporte diagnóstico antes de ingresar a la vista interactiva. Al iniciar una partida normal (o forzada), el reporte se imprime en la consola y se continúa de inmediato hacia la vista interactiva sin bloqueos ni solicitudes de confirmación por teclado.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -48,10 +56,10 @@ Como jugador, antes de iniciar una partida quiero saber si la cripta seleccionad
 
 **Acceptance Scenarios**:
 
-1. **Given** una cripta resoluble, **When** el jugador inicia la partida normalmente, **Then** el sistema muestra el reporte de verificación confirmando que es resoluble y la partida inicia con normalidad.
+1. **Given** una cripta resoluble, **When** el jugador inicia la partida normalmente, **Then** el sistema imprime en consola el reporte de verificación confirmando que es resoluble y procede de inmediato a iniciar la partida interactiva sin pausas bloqueantes.
 2. **Given** una cripta no resoluble, **When** el jugador inicia la partida sin la opción `--forzar`, **Then** la partida no inicia, el sistema finaliza la ejecución y se muestra el reporte con el diagnóstico de no resolubilidad (Apéndice B, Caso 4).
-3. **Given** una cripta no resoluble, **When** el jugador inicia la partida con la opción `--forzar`, **Then** el sistema muestra el reporte con el diagnóstico de no resolubilidad y procede a iniciar la partida interactiva.
-4. **Given** una cripta cualquiera (resoluble o no resoluble), **When** se ejecuta el programa con `--verificar <cripta>`, **Then** se ejecuta únicamente la verificación, se presenta el reporte completo y el programa finaliza sin instanciar la vista interactiva ni iniciar la partida (P2 §3.5).
+3. **Given** una cripta no resoluble, **When** el jugador inicia la partida con la opción `--forzar`, **Then** el sistema imprime en consola el reporte con el diagnóstico de no resolubilidad y procede de inmediato a iniciar la partida interactiva sin pausas bloqueantes.
+4. **Given** una cripta cualquiera (resoluble o no resoluble), **When** se ejecuta el programa con `--verificar <cripta>`, **Then** se ejecuta únicamente la verificación, se presenta el reporte completo y el programa finaliza sin instanciar la vista interactiva con código de salida 0 si es resoluble, 1 si no es resoluble, o 2 si ocurre un error de red, datos o presupuesto (P2 §3.5).
 
 ---
 
@@ -66,8 +74,8 @@ Como jugador o evaluador, cuando una cripta es resoluble quiero conocer una secu
 **Acceptance Scenarios**:
 
 1. **Given** una cripta resoluble con una única cadena lineal de llaves (llave A abre puerta hacia llave B, y llave B abre puerta hacia llave_salida), **When** se verifica la cripta, **Then** el reporte entrega la secuencia ordenada [llave A, llave B, llave_salida] donde cada llave aparece después de todas las llaves necesarias para alcanzarla.
-2. **Given** una cripta resoluble donde existen múltiples órdenes válidos para recolectar las llaves (bifurcaciones independientes), **When** se ejecutan dos o más verificaciones sobre la misma cripta, **Then** ambas ejecuciones producen exactamente el mismo orden de llaves (Apéndice B, Caso 3).
-3. **Given** una cripta donde una llave está asignada en el campo `suelta` de un enemigo que se mueve (errante o cazador), **When** se realiza la verificación, **Then** la llave se ubica para la resolución en la sala inicial donde el enemigo aparece, asumiendo que es derrotado en su origen (Apéndice B, Caso 2).
+2. **Given** una cripta resoluble donde existen múltiples órdenes válidos para recolectar las llaves (bifurcaciones independientes), **When** se ejecutan dos o más verificaciones sobre la misma cripta, **Then** ambas ejecuciones producen exactamente el mismo orden de llaves, desempatando las llaves disponibles en cada paso por orden alfanumérico creciente de su `id` (Apéndice B, Caso 3).
+3. **Given** una cripta donde una llave está asignada a una instancia de enemigo, **When** se consulta `GET /criptas/<id>/llaves` y se realiza la verificación, **Then** la llave se ubica directamente en la sala indicada por el campo `sala` de dicha llave (sala inicial del enemigo), sin requerir peticiones de red adicionales (Apéndice B, Caso 2).
 4. **Given** una cripta donde una puerta cerrada con llave posee además mecanismo de autocierre o trampas en salas intermedias, **When** se evalúa la resolubilidad, **Then** se asume que las llaves no se consumen y que el jugador puede volver a abrir la puerta cuantas veces sea necesario sin quedar bloqueado.
 
 ---
@@ -82,8 +90,8 @@ Como jugador, analista o creador de criptas, cuando una cripta no es resoluble q
 
 **Acceptance Scenarios**:
 
-1. **Given** una cripta donde `llave_salida` se encuentra ubicada detrás de la única puerta que ella misma abre, **When** se ejecuta la verificación, **Then** el sistema determina que la cripta no es resoluble y el reporte señala el ciclo concreto (Apéndice B, Caso 1).
-2. **Given** una cripta con una dependencia circular indirecta (por ejemplo, llave A tras puerta B, llave B tras puerta C, y llave C tras puerta A), **When** se ejecuta la verificación, **Then** el sistema determina que la cripta no es resoluble y el reporte señala de forma determinista la cadena cíclica concreta formada por las llaves.
+1. **Given** una cripta donde `llave_salida` se encuentra ubicada detrás de la única puerta que ella misma abre, **When** se ejecuta la verificación, **Then** el sistema determina que la cripta no es resoluble y el reporte señala el ciclo concreto en formato canónico cerrado `[llave_salida -> llave_salida]` (Apéndice B, Caso 1).
+2. **Given** una cripta con una dependencia circular indirecta (por ejemplo, llave A tras puerta B, llave B tras puerta C, y llave C tras puerta A), **When** se ejecuta la verificación, **Then** el sistema determina que la cripta no es resoluble y el reporte señala de forma determinista la cadena cíclica canónica `[llave_a -> llave_b -> llave_c -> llave_a]` iniciando en la llave de menor `id`.
 3. **Given** una cripta no resoluble donde el jugador solo puede alcanzar un subconjunto de salas antes de topar con puertas cerradas, **When** se emite el reporte, **Then** este enumera todas las puertas de la frontera bloqueada (puertas cerradas conectadas directamente a la región alcanzable) junto con el identificador de la llave que requiere cada una.
 4. **Given** las puertas de la frontera bloqueada identificadas en el reporte, **When** se inspecciona la información de cada una, **Then** el reporte indica en qué sala se encuentra ubicada la llave requerida para cada una de esas puertas.
 5. **Given** una cripta donde el jugador puede alcanzar la `sala_salida` pero no a través de una puerta que requiera `llave_salida` (o no existe `llave_salida`), **When** se verifica la cripta, **Then** la cripta se clasifica como no resoluble.
@@ -147,14 +155,14 @@ Como evaluador técnico, quiero comprobar con `--bench` que la verificación de 
 - **FR-003**: La verificación DEBE asumir que las llaves nunca se consumen al abrir puertas y permanecen en posesión permanente del jugador tras ser obtenidas.
 - **FR-004**: La verificación DEBE asumir que cualquier enemigo puede ser derrotado por el jugador y que las trampas o mecanismos de autocierre de puertas no impiden el paso permanente, ya que toda puerta cerrada puede volver a abrirse si se posee la llave.
 - **FR-005**: Si una llave se encuentra libre en una sala, su ubicación para la verificación DEBE ser esa sala.
-- **FR-006**: Si una llave es soltada por un enemigo (campo `suelta` vinculado al id de la instancia del enemigo), su ubicación para la verificación DEBE ser la sala inicial donde dicho enemigo aparece en la cripta.
+- **FR-006**: Si una llave es soltada por un enemigo (campo `suelta` vinculado al id de la instancia del enemigo), su ubicación para la verificación DEBE ser la sala inicial donde dicho enemigo aparece en la cripta, provista directamente en el campo `sala` del registro de la llave en `GET /criptas/<id>/llaves` sin requerir consultas adicionales de contenido.
 - **FR-007**: Una cripta DEBE considerarse resoluble si y solo si, partiendo de la sala inicial bajo los supuestos anteriores, el jugador puede obtener `llave_salida` y alcanzar `sala_salida` a través de una puerta que requiera dicha llave.
 
 **Determinismo y orden de obtención**
 
 - **FR-008**: Si la cripta es resoluble, el resultado DEBE incluir un orden de obtención de llaves en el que cada llave aparezca estrictamente después de todas las llaves requeridas para acceder a la sala donde se ubica.
 - **FR-009**: Ante múltiples órdenes válidos de recolección de llaves, el sistema DEBE generar el mismo orden en cualquier ejecución sobre la misma cripta.
-- **FR-010**: El desempate para fijar el orden determinista de obtención de llaves DEBE resolverse mediante un criterio canónico unívoco (como el identificador alfanumérico de la llave o de la sala) independiente del orden de almacenamiento interno o iteración en memoria.
+- **FR-010**: El desempate para fijar el orden determinista de obtención de llaves cuando varias llaves quedan disponibles simultáneamente DEBE resolverse mediante orden alfanumérico lexicográfico creciente según el identificador de la llave (`id`), garantizando total reproducibilidad e independencia del orden de almacenamiento o iteración en memoria.
 
 **Diagnóstico de criptas no resolubles y ciclos**
 
@@ -162,19 +170,19 @@ Como evaluador técnico, quiero comprobar con `--bench` que la verificación de 
 - **FR-012**: El reporte de no resolubilidad DEBE listar todas las llaves de la cripta que no pueden ser obtenidas desde la sala inicial.
 - **FR-013**: El reporte de no resolubilidad DEBE identificar todas las puertas pertenecientes a la «frontera bloqueada», definidas como las puertas cerradas inmediatamente adyacentes a la región de salas alcanzables por el jugador.
 - **FR-014**: Para cada puerta de la frontera bloqueada, el reporte DEBE indicar la llave que dicha puerta requiere para ser abierta y la sala en la que se encuentra ubicada esa llave (o indicar si la llave no existe en la cripta).
-- **FR-015**: Si una llave se encuentra detrás de una puerta que ella misma abre, o detrás de una cadena de puertas que requiere de llaves que dependen en última instancia de la primera, el sistema DEBE clasificarla como un ciclo de dependencias y señalar el ciclo concreto en el reporte.
-- **FR-016**: La detección y reporte de ciclos DEBE ser estrictamente determinista entre ejecuciones.
+- **FR-015**: Si una llave se encuentra detrás de una puerta que ella misma abre, o detrás de una cadena de puertas que requiere de llaves que dependen en última instancia de la primera, el sistema DEBE clasificarla como un ciclo de dependencias y señalar la secuencia circular cerrada de llaves en el reporte.
+- **FR-016**: La detección y reporte de ciclos DEBE ser estrictamente determinista: cada ciclo DEBE presentarse iniciando en la llave lexicográficamente menor de dicho ciclo (ej. `[llave_a -> llave_b -> llave_a]`), y ante múltiples ciclos independientes, DEBEN listarse ordenados alfabéticamente por su llave inicial.
 
 **Interfaz de usuario e integración CLI**
 
-- **FR-017**: Al intentar iniciar una partida normal, el sistema DEBE ejecutar la verificación de resolubilidad y mostrar su reporte en pantalla antes de entrar a la vista interactiva.
+- **FR-017**: Al intentar iniciar una partida normal, el sistema DEBE ejecutar la verificación de resolubilidad, imprimir su reporte en consola e iniciar de inmediato la vista interactiva (o continuar según corresponda si se usa `--forzar`) sin pausar ni exigir pulsaciones de teclado.
 - **FR-018**: Si la cripta resulta no resoluble y el comando no incluye la bandera `--forzar`, la partida NO DEBE iniciar y el programa DEBE finalizar mostrando el reporte explicativo.
 - **FR-019**: Si la cripta resulta no resoluble y el comando incluye la bandera `--forzar`, el sistema DEBE mostrar el reporte diagnóstico y proceder a iniciar la partida interactiva.
-- **FR-020**: El sistema DEBE ofrecer la opción de línea de comandos `--verificar <cripta>`, la cual ejecuta únicamente la verificación de resolubilidad de la cripta indicada, imprime el reporte completo y termina sin instanciar la vista interactiva ni iniciar la partida.
+- **FR-020**: El sistema DEBE ofrecer la opción de línea de comandos `--verificar <cripta>`, la cual ejecuta únicamente la verificación de resolubilidad de la cripta indicada, imprime el reporte completo y termina sin instanciar la vista interactiva ni iniciar la partida, retornando código de salida 0 si la cripta es resoluble, 1 si no es resoluble, y 2 ante errores de red, formato de datos o presupuesto agotado.
 
 **Servicio, red, persistencia y generalidad**
 
-- **FR-021**: La ubicación de las llaves DEBE obtenerse mediante el endpoint del servicio `GET /criptas/<id>/llaves`.
+- **FR-021**: La ubicación de las llaves DEBE obtenerse mediante el endpoint del servicio `GET /criptas/<id>/llaves`, cuya respuesta contiene para cada llave su `id`, la `sala` (que para enemigos corresponde directamente a su sala inicial) y opcionalmente el identificador de la instancia del enemigo.
 - **FR-022**: Cada solicitud HTTP a `GET /criptas/<id>/llaves` DEBE contabilizarse como una consulta dentro del `presupuesto_solicitudes` de la cripta.
 - **FR-023**: La respuesta de la ubicación de llaves DEBE persistirse en el almacenamiento local junto con los datos de la cripta y asociarse a la versión de la misma.
 - **FR-024**: Mientras la versión de la cripta almacenada localmente coincida con la versión del servidor (o en modo `--offline`), el sistema DEBE utilizar los datos de llaves persistidos sin realizar peticiones de red ni descontar del `presupuesto_solicitudes`.
@@ -194,7 +202,7 @@ Como evaluador técnico, quiero comprobar con `--bench` que la verificación de 
 - **Llave**: Identificador de una llave en la cripta. Atributos conceptuales: identificador de llave, sala donde se encuentra, e identificador de la instancia de enemigo que la suelta (si aplica).
 - **Puerta Cerrada / Salida Bloqueada**: Conexión orientada entre dos salas que requiere una llave específica para poder ser atravesada.
 - **Frontera Bloqueada**: Conjunto de salidas cerradas cuya sala de origen pertenece a la región de salas alcanzables por el jugador pero cuya sala destino no puede ser visitada por falta de la llave requerida.
-- **Ciclo de Dependencias**: Secuencia ordenada y circular de llaves y puertas `[L_1 -> P_1 -> L_2 -> ... -> P_k -> L_1]` donde cada llave `L_{i+1}` está bloqueada por una puerta `P_i` que solo puede abrirse poseyendo la llave anterior, formando un bloqueo mutuo irresoluble.
+- **Ciclo de Dependencias**: Secuencia ordenada y circular cerrada `[L_1 -> L_2 -> ... -> L_k -> L_1]` donde cada llave `L_{i+1}` está bloqueada por una puerta que solo puede abrirse poseyendo la llave anterior, canónicamente representada iniciando por la llave con menor `id` lexicográfico.
 - **Reporte de Resolubilidad**: Resultado estructurado de la verificación. Para criptas resolubles: indicador de éxito y secuencia ordenada determinista de llaves. Para criptas no resolubles: indicador de fallo, lista de llaves no alcanzadas, listado de la frontera bloqueada con ubicación de llaves requeridas, y lista de ciclos detectados.
 
 ## Success Criteria *(mandatory)*
@@ -202,17 +210,17 @@ Como evaluador técnico, quiero comprobar con `--bench` que la verificación de 
 ### Measurable Outcomes
 
 - **SC-001**: Los 4 escenarios obligatorios de aceptación del Apéndice B («llave_salida tras puerta que ella misma abre», «llave en suelta de errante en sala inicial», «orden determinista ante múltiples caminos válidos» y «bloqueo de inicio sin --forzar») cuentan con pruebas automatizadas que citan sus respectivos requisitos y pasan exitosamente.
-- **SC-002**: En el 100% de las ejecuciones repetidas sobre la misma cripta con múltiples órdenes válidos posibles de recolección de llaves, el orden resultante es idéntico carácter por carácter.
+- **SC-002**: En el 100% de las ejecuciones repetidas sobre la misma cripta con múltiples órdenes válidos posibles de recolección de llaves, el orden resultante es idéntico carácter por carácter, siguiendo la regla de desempate alfanumérico por `id` de llave.
 - **SC-003**: En la cripta más grande publicada por el servicio, la verificación completa toma estrictamente menos de 200 ms ejecutada en el equipo local sin red ni vista.
 - **SC-004**: En criptas sintéticas con cadenas de 10, 20, 50 y 100 llaves encadenadas secuencialmente, el incremento en tiempo de ejecución medido con `--bench` demuestra un factor de crecimiento lineal O(|V| + |E| + |llaves|) sin degradación cuadrática.
 - **SC-005**: Al iniciar una partida con una cripta no resoluble sin especificar `--forzar`, el juego finaliza en el 100% de los casos sin llegar a instanciar la pantalla de juego ni admitir comandos de acción del jugador.
-- **SC-006**: La opción `--verificar <cripta>` completa su diagnóstico y emite el reporte en consola sin abrir ventanas gráficas ni bucles interactivos en menos de 250 ms en entorno local.
+- **SC-006**: La opción `--verificar <cripta>` completa su diagnóstico y emite el reporte en consola sin abrir ventanas gráficas ni bucles interactivos en menos de 250 ms en entorno local, retornando código de salida 0 si la cripta es resoluble y 1 si no es resoluble.
 - **SC-007**: La consulta de llaves realiza a lo sumo una única llamada HTTP por versión de cripta, y no realiza llamadas adicionales en ejecuciones subsecuentes sobre la misma versión persistida ni en modo `--offline`.
 - **SC-008**: Toda la suite existente de pruebas unitarias y de aceptación de etapas anteriores continúa ejecutándose y pasando al 100%.
 
 ## Assumptions
 
-- **Información del servicio**: El servicio provee de manera confiable la ubicación de todas las llaves en `GET /criptas/<id>/llaves` con el identificador de la sala y, cuando corresponda, el identificador de instancia del enemigo portador.
+- **Información del servicio**: El servicio provee de manera autosuficiente la ubicación de todas las llaves en `GET /criptas/<id>/llaves` con el identificador de la sala de obtención (la sala inicial para enemigos) y, cuando corresponda, el identificador de instancia del enemigo portador, sin necesidad de descargar el contenido de las salas para la verificación.
 - **Instancias de enemigos**: Los datos generales del esqueleto de la cripta contienen la asignación de salas iniciales para cada instancia de enemigo declarada.
 - **Puerta de salida**: Se asume que toda cripta formalmente definida posee una `sala_salida` y una `llave_salida`. Si una cripta carece de dicha definición en sus metadatos, la verificación la reporta como no resoluble por defecto de datos.
 - **Simplicidad del combate**: El supuesto de que "todo enemigo puede ser derrotado" es exclusivo del análisis estático de resolubilidad y no altera las probabilidades ni las reglas del combate real durante la partida interactiva.
