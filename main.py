@@ -1,4 +1,5 @@
 import argparse
+import os
 import random
 import sys
 from src.adaptadores.api_client import ApiClient
@@ -13,6 +14,7 @@ from src.servicios import bitacora as servicio_bitacora
 from src.servicios import cache_persistente, guardado, puntajes
 from src.servicios.cargador_cripta import cargar_datos, cargar_esqueleto
 from src.servicios.proveedor_red import ProveedorRed
+from src.servicios.verificador_servicio import CARPETA_CACHE, verificar_cripta
 from src.vistas.vista_consola import VistaConsola
 
 def leer_argumentos(argv):
@@ -27,6 +29,8 @@ def leer_argumentos(argv):
     parser.add_argument('--cargar', metavar='RUTA', help='retoma una partida guardada (.bin o .json)')
     parser.add_argument('--puntajes-ruta', metavar='RUTA', default=puntajes.RUTA_POR_DEFECTO, help='archivo de la tabla de puntajes')
     parser.add_argument('--bench', action='store_true', help='mide el desempeño de los subsistemas propios del proyecto y termina')
+    parser.add_argument('--verificar', metavar='CRIPTA', help='verifica si la cripta es resoluble y termina (código 0 resoluble, 1 no resoluble, 2 error)')
+    parser.add_argument('--forzar', action='store_true', help='juega una cripta aunque no sea resoluble')
     return parser.parse_args(argv)
 
 def _fuente(args):
@@ -69,11 +73,37 @@ def _ejecutar_replay(args, vista) -> int:
         _mostrar_solicitudes(cliente, cache)
     return 0
 
+def _carpeta_llaves(args) -> str:
+    return os.path.dirname(args.cache_ruta) or CARPETA_CACHE
+
+def _ejecutar_verificar(args) -> int:
+    cliente = _fuente(args)
+    try:
+        datos = cargar_datos(cliente, args.verificar)
+        cripta = cargar_esqueleto(cliente, datos)
+        reporte = verificar_cripta(cliente, cripta, _carpeta_llaves(args))
+    except (ErrorCliente, ErrorDatos) as error:
+        print(f'Error: {error}', file=sys.stderr)
+        return 2
+    print(reporte.texto())
+    _mostrar_solicitudes(cliente)
+    return 0 if reporte.resoluble else 1
+
+def _verificar_antes_de_jugar(args, cliente, cripta, vista) -> bool:
+    reporte = verificar_cripta(cliente, cripta, _carpeta_llaves(args))
+    vista.mostrar_mensaje(reporte.texto())
+    if reporte.resoluble or args.forzar:
+        return True
+    vista.mostrar_mensaje('La partida no inicia porque la cripta no es resoluble. Use --forzar para jugarla de todos modos.')
+    return False
+
 def _ejecutar_partida(args, vista) -> int:
     cliente = _fuente(args)
     cache = None
     try:
         cripta, proveedor, cache, version_catalogo = _preparar_cripta(args, cliente, vista)
+        if not args.cargar and not _verificar_antes_de_jugar(args, cliente, cripta, vista):
+            return 1
         if args.cargar:
             cargador = guardado.cargar_json if args.cargar.endswith('.json') else guardado.cargar_binario
             partida = guardado.restaurar_partida(cargador(args.cargar), cripta, proveedor)
@@ -99,6 +129,8 @@ def main(argv=None) -> int:
     if args.bench:
         print(banco_pruebas.formatear(banco_pruebas.ejecutar_todo()))
         return 0
+    if args.verificar:
+        return _ejecutar_verificar(args)
     vista = VistaConsola()
     try:
         if args.replay:

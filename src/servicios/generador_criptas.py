@@ -304,13 +304,25 @@ def cripta_ampliada_x10(semilla: int, ancho: int, alto: int, sala_jugador: int, 
     return fragmentos(base) + fragmentos(extra)
 
 
+def texto_llaves(llaves: list) -> str:
+    """Texto JSON de la ubicación de llaves; cada llave es (id, sala) o (id, sala, enemigo)."""
+    partes = []
+    for llave in llaves:
+        texto = '{"id": ' + json.dumps(llave[0]) + ', "sala": ' + json.dumps(llave[1])
+        if len(llave) > 2 and llave[2] is not None:
+            texto += ', "enemigo": ' + json.dumps(llave[2])
+        partes.append(texto + '}')
+    return '{"llaves": [' + ', '.join(partes) + ']}'
+
+
 def fuente_sintetica(textos_salas: list, sala_inicial: int = 1, sala_salida: int = None, tam_pagina: int = 50,
-                     semilla_paginas=None, textos_contenido=None, textos_catalogo=None, id_cripta: str = 'sintetica', **datos) -> FuenteMemoria:
+                     semilla_paginas=None, textos_contenido=None, textos_catalogo=None, id_cripta: str = 'sintetica',
+                     texto_llaves=None, **datos) -> FuenteMemoria:
     """FuenteMemoria lista para el cargador real, con los textos dados (G1)."""
     paginas = paginar(textos_salas, tam_pagina, semilla_paginas)
     n = len(textos_salas)
     texto_datos = texto_datos_generales(id_cripta, n, len(paginas), sala_inicial, sala_salida if sala_salida is not None else n, **datos)
-    return FuenteMemoria(id_cripta, texto_datos, paginas, textos_contenido, textos_catalogo)
+    return FuenteMemoria(id_cripta, texto_datos, paginas, textos_contenido, textos_catalogo, texto_llaves=texto_llaves)
 
 
 def cargar_cripta_sintetica(fuente: FuenteMemoria):

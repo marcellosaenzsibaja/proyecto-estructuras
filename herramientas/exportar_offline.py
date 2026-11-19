@@ -24,6 +24,7 @@ def exportar(cliente: ApiClient, cripta_id: str, salida: str):
     datos = cliente.obtener_datos_cripta(cripta_id)
     _guardar(os.path.join(base, 'datos_generales.json'), datos)
     _guardar(os.path.join(salida, cripta_id, 'version.json'), cliente.obtener_version_cripta(cripta_id))
+    _guardar(os.path.join(base, 'llaves.json'), cliente.obtener_llaves(cripta_id))
     ids_salas = []
     pagina = 1
     total = 1

@@ -23,6 +23,10 @@ class FuenteFalsa(FuenteDatos):
         self.llamadas.append('criptas')
         return {'criptas': []}
 
+    def obtener_llaves(self, cripta_id):
+        self.llamadas.append('llaves')
+        return {'llaves': []}
+
     def obtener_datos_cripta(self, cripta_id):
         self.llamadas.append('datos')
         return {'id': cripta_id, 'version': 'v1', 'salas_total': self.salas, 'paginas': 1, 'salas_por_pagina': self.por_pagina, 'sala_inicial': 1, 'sala_salida': self.salas, 'llave_salida': 'itm_llave_negra', 'presupuesto_solicitudes': 20, 'inventario_max': 10, 'jugador': {'vida_max': 30, 'ataque': 6, 'defensa': 2, 'velocidad': 100}}

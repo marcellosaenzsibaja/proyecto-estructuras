@@ -29,3 +29,7 @@ class FuenteDatos(ABC):
     @abstractmethod
     def obtener_version_catalogo(self) -> dict:
         ...
+
+    @abstractmethod
+    def obtener_llaves(self, cripta_id: str) -> dict:
+        ...

@@ -90,3 +90,6 @@ class ApiClient(FuenteDatos):
 
     def obtener_version_catalogo(self) -> dict:
         return self._get('/catalogo/version', 'versión del catálogo')
+
+    def obtener_llaves(self, cripta_id: str) -> dict:
+        return self._get(f'/criptas/{cripta_id}/llaves', f'llaves de {cripta_id}')

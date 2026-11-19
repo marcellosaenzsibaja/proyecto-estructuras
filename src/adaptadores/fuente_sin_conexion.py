@@ -56,3 +56,6 @@ class FuenteSinConexion(FuenteDatos):
 
     def obtener_version_catalogo(self) -> dict:
         return self._leer(('catalogo', 'version.json'), 'versión del catálogo')
+
+    def obtener_llaves(self, cripta_id: str) -> dict:
+        return self._leer((cripta_id, 'llaves.json'), f'llaves de {cripta_id}')

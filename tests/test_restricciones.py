@@ -23,6 +23,14 @@ ARCHIVOS_VIGILADOS = [
     'tests/referencia_cazador.py',
     'tests/test_generador_criptas.py',
     'tests/utilidades_cripta.py',
+    'src/estructuras_datos/busqueda_binaria.py',
+    'src/modelos/resolubilidad.py',
+    'src/servicios/verificador_servicio.py',
+    'tests/test_busqueda_binaria.py',
+    'tests/test_resolubilidad.py',
+    'tests/test_resolubilidad_irresoluble.py',
+    'tests/test_bench_resolubilidad.py',
+    'tests/test_monticulo_llaves.py',
 ]
 
 MODULOS_PROHIBIDOS = ['heapq', 'bisect', 'collections', 'queue', 'networkx', 'igraph', 'graphlib', 'sortedcontainers']
