@@ -6,7 +6,10 @@ from src.modelos.entidades import Efecto, Enemigo, Jugador, Objeto, Trampa
 from src.modelos.errores import ContenidoNoDisponible, EstadoInvalido
 from src.modelos.cazador import MOVER as DECISION_MOVER, DecisorCazadores
 from src.modelos.fichas import ANTIDOTO, ANTORCHA, ARMA, ARMADURA, CAZADOR, ERRANTE, GUARDIAN, LLAVE, PERGAMINO, POCION, RASTREADOR
+from src.modelos.linea_tiempo import CURSOR_ANT, CURSOR_SIG, K_POR_DEFECTO, LineaTiempo, reconstruir_antes_de, reconstruir_en
+from src.modelos.mapa_conocido import MapaConocido
 from src.modelos.reloj import MotorReloj
+from src.modelos.resumen_historia import construir as construir_resumen
 EN_CURSO = 'en_curso'
 VICTORIA = 'victoria'
 DERROTA = 'derrota'
@@ -60,11 +63,17 @@ def _aceptada(mensaje, costo):
 
 class Partida:
 
-    def __init__(self, cripta, proveedor, semilla: int):
+    def __init__(self, cripta, proveedor, semilla: int, k_checkpoint: int = K_POR_DEFECTO):
         self.cripta = cripta
         self.proveedor = proveedor
         self.semilla = semilla
         self.azar = random.Random(semilla)
+        self.mapa = MapaConocido(len(cripta))
+        self.linea = LineaTiempo(k_checkpoint)
+        self.registra_linea = True
+        self.limite_tiempo = None
+        self._accion_actual = None
+        self._buscador_conocido = None
         self.reloj = MotorReloj()
         self.mensajes = BufferCircular(MENSAJES_VISIBLES)
         self.estado = EN_CURSO
@@ -110,17 +119,22 @@ class Partida:
         self._incorporar_contenido(inicial)
         self.jugador.sala_id = inicial.id
         inicial.rastro = 0
+        self.mapa.observar_puertas(inicial)
+        self.mapa.explorar(inicial)
         self.jugador.evento = self.reloj.programar_evento(0, EV_JUGADOR, self.jugador)
         self._activar_enemigos(inicial)
         self._mensaje(f'Comienza la partida en {inicial.nombre}.')
         self._grabando = True
         self._avanzar()
+        if self.registra_linea:
+            self.linea.tomar_punto(self)
 
     def ejecutar(self, accion) -> Resultado:
         if self.estado != EN_CURSO or not self._esperando_jugador:
             raise EstadoInvalido('La partida no espera una acción del jugador')
         tipo = accion.tipo
         argumento = accion.argumento
+        self._accion_actual = accion
         if tipo == USAR and self._pergamino_seleccionado():
             return self._usar_pergamino()
         if tipo == MOVER:
@@ -244,17 +258,25 @@ class Partida:
         finally:
             self._grabando = True
         self.jugador.inventario.remover_nodo(nodo)
+        if self.registra_linea:
+            self.linea.recortar(self.acciones_jugador, self.reloj.tiempo_virtual)
         self._mensaje('Usas el pergamino de retroceso. El tiempo retrocede.')
         return Resultado(ACEPTADA, '', 0)
 
     def _cerrar_accion(self, costo: int):
         self._esperando_jugador = False
-        self._set_atributo(self, 'acciones_jugador', self.acciones_jugador + 1)
+        numero = self.acciones_jugador + 1
+        if self.registra_linea and self._accion_actual is not None:
+            self.linea.registrar_accion(numero, self.reloj.tiempo_virtual,
+                                        self._accion_actual.tipo, self._accion_actual.argumento)
+        self._set_atributo(self, 'acciones_jugador', numero)
         self._set_atributo(self.sala_actual, 'rastro', self.reloj.tiempo_virtual)
         if self.estado == EN_CURSO:
             self._programar_accion(self.jugador, costo)
             self._avanzar()
         self._confirmar_intervalo()
+        if self.registra_linea and self.linea.debe_tomar_punto(self.acciones_jugador):
+            self.linea.tomar_punto(self)
 
     def _programar_accion(self, actor, costo: int):
         intervalo = max(1, costo * 100 // actor.velocidad)
@@ -263,6 +285,10 @@ class Partida:
 
     def _avanzar(self):
         while self.estado == EN_CURSO and (not self._esperando_jugador):
+            if self.limite_tiempo is not None:
+                if self.reloj.agenda.esta_vacio() or self.reloj.agenda.minimo().tiempo > self.limite_tiempo:
+                    self.reloj.tiempo_virtual = self.limite_tiempo
+                    return
             anterior_tiempo = self.reloj.tiempo_virtual
             evento = self.reloj.siguiente_evento()
             if evento is None:
@@ -381,6 +407,13 @@ class Partida:
         self._liberar_suelo_sala(sala)
         self._set_atributo(self.jugador, 'sala_id', destino.id)
         self._mensaje(f'Te mueves a {destino.nombre}.')
+        self.mapa.observar_puertas(destino, self._registrar)
+        self.mapa.explorar(destino, self._registrar)
+        if self.jugador.antorcha is not None:
+            for direccion_vecina in range(4):
+                salida_vecina = destino.salidas[direccion_vecina]
+                if salida_vecina is not None and salida_vecina.sala_destino is not None:
+                    self.mapa.explorar(salida_vecina.sala_destino, self._registrar)
         self._activar_enemigos(destino)
         self._activar_trampas(destino)
         if self.estado == EN_CURSO and destino.id == self.cripta.datos.sala_salida and salida.puerta.abierta_por_jugador and (salida.puerta.llave == self.cripta.datos.llave_salida):
@@ -426,6 +459,7 @@ class Partida:
         if not self._tiene_llave(puerta.llave):
             return _rechazo('No tienes la llave correcta.')
         self._poner_cerrada(puerta, False)
+        self.mapa.observar_puerta(self.sala_actual, direccion, False, self._registrar)
         self._set_atributo(puerta, 'abierta_por_jugador', True)
         if puerta.cierre_automatico:
             self._programar_en(puerta, 'evento_cierre', puerta.cierre_automatico, EV_CIERRE, puerta)
@@ -452,6 +486,17 @@ class Partida:
         self.version_puertas += 1
         if self._decisor is not None:
             self._decisor.notificar_puerta(puerta)
+        self._observar_si_presente(puerta)
+
+    def _observar_si_presente(self, puerta):
+        """El jugador observa una puerta cuando está en cualquiera de sus dos salas (003 FR-008)."""
+        if self.jugador.sala_id is None:
+            return
+        sala = self.cripta.sala(self.jugador.sala_id)
+        for direccion in range(4):
+            salida = sala.salidas[direccion]
+            if salida is not None and salida.puerta is puerta:
+                self.mapa.observar_puerta(sala, direccion, puerta.cerrada, self._registrar)
 
     def _atacar(self, instancia):
         objetivo = None
@@ -757,3 +802,81 @@ class Partida:
             self._mensaje(f'{self._nombre(enemigo)} se aleja de la sala.')
         elif destino.id == jugador_en:
             self._mensaje(f'{self._nombre(enemigo)} entra a la sala.')
+
+    @property
+    def buscador_conocido(self):
+        if self._buscador_conocido is None:
+            from src.modelos.viaje import BuscadorConocido
+            self._buscador_conocido = BuscadorConocido(self.cripta, self.mapa)
+        return self._buscador_conocido
+
+    def ruta_conocida(self, id_destino: int):
+        if not self.cripta.existe(id_destino):
+            return None
+        origen = self.cripta.sala(self.jugador.sala_id)
+        objetivo = self.cripta.sala(id_destino)
+        return self.buscador_conocido.primer_paso(origen, objetivo)
+
+    def ruta_conocida_existe(self, id_destino: int) -> bool:
+        return self.ruta_conocida(id_destino) is not None
+
+    def siguiente_paso_viaje(self, id_destino: int):
+        resultado = self.ruta_conocida(id_destino)
+        if resultado is None:
+            return None
+        _, id_vecina = resultado
+        if id_vecina is None:
+            return None
+        origen = self.cripta.sala(self.jugador.sala_id)
+        return self.buscador_conocido.direccion_hacia(origen, id_vecina)
+
+    def destino_valido(self, id_destino: int) -> bool:
+        if not self.cripta.existe(id_destino):
+            return False
+        return self.mapa.explorada(self.cripta.sala(id_destino))
+
+    def mover_cursor(self, sentido: int) -> bool:
+        inventario = self.jugador.inventario
+        movido = inventario.avanzar() if sentido > 0 else inventario.retroceder()
+        if movido and self.registra_linea:
+            self.linea.registrar_cursor(self.reloj.tiempo_virtual,
+                                        CURSOR_SIG if sentido > 0 else CURSOR_ANT)
+        return movido
+
+    def avanzar_hasta(self, tiempo: int):
+        if self.estado != EN_CURSO:
+            return
+        anterior_limite = self.limite_tiempo
+        esperando = self._esperando_jugador
+        self.limite_tiempo = tiempo
+        self._esperando_jugador = False
+        try:
+            self._avanzar()
+        finally:
+            self.limite_tiempo = anterior_limite
+            self._esperando_jugador = esperando if self.estado == EN_CURSO else False
+        if self.estado == EN_CURSO and self.reloj.tiempo_virtual < tiempo:
+            self.reloj.tiempo_virtual = tiempo
+
+    def historia_en(self, tiempo):
+        if not isinstance(tiempo, int) or isinstance(tiempo, bool):
+            return (None, "Usa 'historia <t>' con un instante, o 'historia #k' con el número de una acción.")
+        if tiempo < 0:
+            return (None, f'El instante debe estar entre 0 y {self.reloj.tiempo_virtual}.')
+        if tiempo > self.reloj.tiempo_virtual:
+            return (None, f'Ese instante todavía no ha ocurrido (el reloj va en {self.reloj.tiempo_virtual}).')
+        reconstruida = reconstruir_en(self, tiempo)
+        if reconstruida is None:
+            return (None, 'No hay información suficiente para reconstruir ese instante.')
+        return (construir_resumen(reconstruida), None)
+
+    def historia_antes_de(self, numero):
+        if not isinstance(numero, int) or isinstance(numero, bool):
+            return (None, "Usa 'historia <t>' con un instante, o 'historia #k' con el número de una acción.")
+        if numero < 1 or numero > self.acciones_jugador + 1:
+            return (None, f'Solo hay {self.acciones_jugador} acciones del jugador; '
+                          f'usa #1 a #{self.acciones_jugador + 1}.')
+        reconstruida = reconstruir_antes_de(self, numero)
+        if reconstruida is None:
+            return (None, 'No hay información suficiente para reconstruir esa acción.')
+        return (construir_resumen(reconstruida), None)

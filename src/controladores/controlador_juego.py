@@ -1,8 +1,12 @@
 from src.modelos.acciones import ABRIR, ATACAR, ESPERAR, EQUIPAR, MOVER, PENDIENTE, RECOGER, SOLTAR, USAR, Accion
 from src.modelos.direcciones import indice_direccion
 from src.modelos.fichas import PERGAMINO
+from src.modelos.linea_tiempo import CURSOR_ANT, CURSOR_SIG
 from src.modelos.partida import EN_CURSO
+from src.modelos.viaje import ejecutar_viaje, resolver_destino, validar_destino
 from src.servicios import guardado, puntajes
+
+AYUDA_HISTORIA = "Usa 'historia <t>' con un instante, o 'historia #k' con el número de una acción."
 
 class ControladorJuego:
 
@@ -37,10 +41,17 @@ class ControladorJuego:
         if nombre in ('ayuda', '?'):
             self.vista.mostrar_ayuda()
         elif nombre in ('sig', 'ant'):
-            inventario = self.partida.jugador.inventario
-            movido = inventario.avanzar() if nombre == 'sig' else inventario.retroceder()
+            movido = self.partida.mover_cursor(1 if nombre == 'sig' else -1)
+            if movido and self.bitacora is not None:
+                self.bitacora.registrar_cursor(CURSOR_SIG if nombre == 'sig' else CURSOR_ANT)
             if not movido:
                 self.vista.mostrar_mensaje('No hay más objetos en esa dirección.')
+        elif nombre in ('historia', 'hist'):
+            self._historia(argumento)
+        elif nombre in ('mapa', 'mp'):
+            self.vista.mostrar_mapa_conocido(self.partida)
+        elif nombre == 'ir':
+            self._ir_a(argumento)
         elif nombre in ('ordenar', 'ord'):
             self.vista.mostrar_inventario_ordenado(self.partida)
         elif nombre in ('puntajes', 'pts'):
@@ -67,6 +78,48 @@ class ControladorJuego:
                 self._ejecutar_accion(Accion(USAR))
                 return
         self.vista.mostrar_mensaje('No tienes ningún pergamino de retroceso.')
+
+    def _ir_a(self, argumento):
+        texto = (argumento or '').strip()
+        if texto.lower().startswith('a ') or texto.lower() == 'a':
+            texto = texto[1:].strip()
+        id_destino, error = resolver_destino(self.partida, texto)
+        if error is not None:
+            self.vista.mostrar_mensaje(error)
+            return
+        error = validar_destino(self.partida, id_destino)
+        if error is not None:
+            self.vista.mostrar_mensaje(error)
+            return
+        if self.bitacora is not None:
+            self.bitacora.registrar_comentario(f'ir a {id_destino}')
+
+        def _antes(accion):
+            if self.bitacora is not None:
+                self.bitacora.registrar(accion)
+        viaje = ejecutar_viaje(self.partida, id_destino, antes_de_paso=_antes)
+        self.vista.mostrar_fin_viaje(self.partida, viaje)
+
+    def _historia(self, argumento):
+        if argumento is None or not argumento.strip():
+            self.vista.mostrar_mensaje(AYUDA_HISTORIA)
+            return
+        texto = argumento.strip()
+        if texto.startswith('#'):
+            resto = texto[1:]
+            if not resto.isdigit():
+                self.vista.mostrar_mensaje(AYUDA_HISTORIA)
+                return
+            resumen, error = self.partida.historia_antes_de(int(resto))
+        elif texto.isdigit():
+            resumen, error = self.partida.historia_en(int(texto))
+        else:
+            self.vista.mostrar_mensaje(AYUDA_HISTORIA)
+            return
+        if error is not None:
+            self.vista.mostrar_mensaje(error)
+            return
+        self.vista.mostrar_resumen_historia(resumen)
 
     def _guardar(self, argumento):
         ruta = argumento or 'partida.bin'

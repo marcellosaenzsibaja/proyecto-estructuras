@@ -8,7 +8,10 @@ from src.adaptadores.fuente_sin_conexion import FuenteSinConexion
 from src.controladores.controlador_juego import ControladorJuego
 from src.estructuras_datos.cache_fichas import CAPACIDAD_POR_DEFECTO
 from src.modelos.errores import ContenidoNoDisponible, ErrorDatos
+from src.modelos.linea_tiempo import K_POR_DEFECTO
 from src.modelos.partida import EN_CURSO, Partida
+from src.modelos.resumen_historia import construir as construir_resumen
+from src.modelos.resumen_historia import formatear as formatear_resumen
 from src.servicios import banco_pruebas
 from src.servicios import bitacora as servicio_bitacora
 from src.servicios import cache_persistente, guardado, puntajes
@@ -31,6 +34,8 @@ def leer_argumentos(argv):
     parser.add_argument('--bench', action='store_true', help='mide el desempeño de los subsistemas propios del proyecto y termina')
     parser.add_argument('--verificar', metavar='CRIPTA', help='verifica si la cripta es resoluble y termina (código 0 resoluble, 1 no resoluble, 2 error)')
     parser.add_argument('--forzar', action='store_true', help='juega una cripta aunque no sea resoluble')
+    parser.add_argument('--checkpoint-cada', type=int, default=K_POR_DEFECTO, metavar='K', help=f'acciones del jugador entre puntos de control de la línea de tiempo (por defecto {K_POR_DEFECTO})')
+    parser.add_argument('--hasta', type=int, metavar='T', help='con --replay: reproduce hasta el instante T e imprime el resumen de la historia')
     return parser.parse_args(argv)
 
 def _fuente(args):
@@ -65,9 +70,16 @@ def _ejecutar_replay(args, vista) -> int:
         cripta, proveedor, cache, version_catalogo = _preparar_cripta(args, cliente, vista, id_cripta=encabezado['cripta_id'])
 
         def _mostrar_paso(partida, accion, resultado):
-            vista.mostrar_mensaje(f'[{partida.reloj.tiempo_virtual}] {accion.tipo} {accion.argumento} -> {resultado.estado}')
-        partida = servicio_bitacora.reproducir(args.replay, cripta, proveedor, version_catalogo=version_catalogo, en_cada_paso=_mostrar_paso)
-        vista.mostrar_final(partida, abandonada=partida.estado == EN_CURSO)
+            if args.hasta is None:
+                print(f'[{partida.reloj.tiempo_virtual}] {accion.tipo} {accion.argumento} -> {resultado.estado}')
+        partida = servicio_bitacora.reproducir(args.replay, cripta, proveedor, version_catalogo=version_catalogo, en_cada_paso=_mostrar_paso, hasta=args.hasta, k_checkpoint=args.checkpoint_cada)
+        if args.hasta is None:
+            vista.mostrar_final(partida, abandonada=partida.estado == EN_CURSO)
+        else:
+            if partida.estado == EN_CURSO and partida.reloj.tiempo_virtual < args.hasta:
+                partida.avanzar_hasta(args.hasta)
+            for linea in formatear_resumen(construir_resumen(partida, args.hasta)):
+                print(linea)
         cache_persistente.guardar_cache(cache, args.cache_ruta, version_catalogo)
     finally:
         _mostrar_solicitudes(cliente, cache)
@@ -106,12 +118,12 @@ def _ejecutar_partida(args, vista) -> int:
             return 1
         if args.cargar:
             cargador = guardado.cargar_json if args.cargar.endswith('.json') else guardado.cargar_binario
-            partida = guardado.restaurar_partida(cargador(args.cargar), cripta, proveedor)
+            partida = guardado.restaurar_partida(cargador(args.cargar), cripta, proveedor, k_checkpoint=args.checkpoint_cada)
         else:
             semilla = args.semilla
             if semilla is None:
                 semilla = random.SystemRandom().randrange(2 ** 32)
-            partida = Partida(cripta, proveedor, semilla)
+            partida = Partida(cripta, proveedor, semilla, args.checkpoint_cada)
         bitacora = servicio_bitacora.Bitacora(args.bitacora or 'bitacora.log')
         if not args.cargar:
             bitacora.iniciar(cripta.datos.id, cripta.datos.version, partida.semilla, version_catalogo)
@@ -126,6 +138,12 @@ def _ejecutar_partida(args, vista) -> int:
 
 def main(argv=None) -> int:
     args = leer_argumentos(argv)
+    if args.checkpoint_cada < 1:
+        print('--checkpoint-cada debe ser un entero mayor o igual que 1.', file=sys.stderr)
+        return 2
+    if args.hasta is not None and not args.replay:
+        print('--hasta solo se puede usar junto con --replay.', file=sys.stderr)
+        return 2
     if args.bench:
         print(banco_pruebas.formatear(banco_pruebas.ejecutar_todo()))
         return 0

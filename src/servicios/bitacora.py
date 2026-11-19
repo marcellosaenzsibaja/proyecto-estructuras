@@ -18,6 +18,12 @@ class Bitacora:
     def registrar(self, accion: Accion):
         self._escribir({'tipo': accion.tipo, 'argumento': accion.argumento})
 
+    def registrar_cursor(self, tipo: str):
+        self._escribir({'tipo': tipo})
+
+    def registrar_comentario(self, texto: str):
+        self._escribir({'tipo': 'comentario', 'texto': texto})
+
     def _escribir(self, registro: dict):
         self._archivo.write(json.dumps(registro, ensure_ascii=False) + '\n')
         self._archivo.flush()
@@ -40,7 +46,8 @@ def leer(ruta: str):
     if not lineas or lineas[0].get('tipo') != 'encabezado':
         raise ErrorDatos(f'Bitácora inválida o sin encabezado: {ruta}')
     encabezado = lineas[0]
-    acciones = [Accion(linea['tipo'], linea.get('argumento')) for linea in lineas[1:]]
+    acciones = [Accion(linea['tipo'], linea.get('argumento'))
+                for linea in lineas[1:] if linea.get('tipo') != 'comentario']
     return (encabezado, acciones)
 
 def verificar_version(encabezado: dict, cripta, version_catalogo=None):
@@ -50,15 +57,23 @@ def verificar_version(encabezado: dict, cripta, version_catalogo=None):
     if version_catalogo is not None and registrada is not None and (registrada != version_catalogo):
         raise ErrorDatos(f"La bitácora no es compatible: fue grabada con la versión de catálogo '{registrada}', y la disponible ahora es '{version_catalogo}'. No se puede garantizar una reproducción fiel.")
 
-def reproducir(ruta: str, cripta, proveedor, version_catalogo=None, en_cada_paso=None):
+def reproducir(ruta: str, cripta, proveedor, version_catalogo=None, en_cada_paso=None, hasta=None, k_checkpoint=None):
+    from src.modelos.linea_tiempo import CURSOR_ANT, CURSOR_SIG, K_POR_DEFECTO
     from src.modelos.partida import EN_CURSO, Partida
     encabezado, acciones = leer(ruta)
     verificar_version(encabezado, cripta, version_catalogo)
-    partida = Partida(cripta, proveedor, encabezado['semilla'])
+    if k_checkpoint is None:
+        k_checkpoint = K_POR_DEFECTO
+    partida = Partida(cripta, proveedor, encabezado['semilla'], k_checkpoint)
     partida.iniciar()
     for accion in acciones:
         if partida.estado != EN_CURSO:
             break
+        if hasta is not None and partida.reloj.tiempo_virtual >= hasta:
+            break
+        if accion.tipo in (CURSOR_SIG, CURSOR_ANT):
+            partida.mover_cursor(1 if accion.tipo == CURSOR_SIG else -1)
+            continue
         resultado = partida.ejecutar(accion)
         if en_cada_paso is not None:
             en_cada_paso(partida, accion, resultado)

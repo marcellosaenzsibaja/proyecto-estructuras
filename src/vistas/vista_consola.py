@@ -1,7 +1,10 @@
 from src.estructuras_datos.ordenamiento import ordenar
 from src.modelos.direcciones import LETRAS
 from src.modelos.fichas import ARMA, ARMADURA, CAZADOR
-AYUDA = 'Comandos:\n  mover <N|S|E|O>     (m)\n  abrir <N|S|E|O>     (ab)\n  atacar <número>     (a)    número de la lista de enemigos\n  esperar             (e)\n  recoger <número>    (r)    número de la lista del suelo\n  usar                (u)    objeto seleccionado\n  equipar             (eq)   objeto seleccionado\n  soltar              (so)   objeto seleccionado\n  sig / ant           recorrer el inventario\n  ordenar             (ord)  ver el inventario en orden alfabético\n  pergamino           (perg) deshace tu última decisión, si tienes uno\n  guardar [archivo]   (gu)   guarda la partida (.bin o .json)\n  cargar [archivo]    (ca)   retoma una partida guardada\n  puntajes            (pts)  mejores puntajes registrados\n  ayuda               (?)\n  salir'
+from src.modelos.mapa_conocido import NOMBRE_PUERTA, RECORDADA_CERRADA
+from src.modelos.resumen_historia import formatear as formatear_historia
+from src.modelos.viaje import mensaje_fin as mensaje_fin_viaje
+AYUDA = 'Comandos:\n  mover <N|S|E|O>     (m)\n  abrir <N|S|E|O>     (ab)\n  atacar <número>     (a)    número de la lista de enemigos\n  esperar             (e)\n  recoger <número>    (r)    número de la lista del suelo\n  usar                (u)    objeto seleccionado\n  equipar             (eq)   objeto seleccionado\n  soltar              (so)   objeto seleccionado\n  sig / ant           recorrer el inventario\n  ordenar             (ord)  ver el inventario en orden alfabético\n  pergamino           (perg) deshace tu última decisión, si tienes uno\n  mapa                (mp)   ver el mapa que conoces\n  ir a <sala>         viajar a una sala explorada por la ruta que conoces\n  historia <t>        (hist) estado de la partida en un instante pasado\n  historia #k         (hist) estado justo antes de tu acción número k\n  guardar [archivo]   (gu)   guarda la partida (.bin o .json)\n  cargar [archivo]    (ca)   retoma una partida guardada\n  puntajes            (pts)  mejores puntajes registrados\n  ayuda               (?)\n  salir'
 
 class VistaConsola:
 
@@ -25,6 +28,42 @@ class VistaConsola:
     def mostrar_mensaje(self, texto: str):
         print(texto)
 
+    def mostrar_resumen_historia(self, resumen):
+        for linea in formatear_historia(resumen):
+            print(linea)
+
+    def mostrar_fin_viaje(self, partida, viaje):
+        mensaje = mensaje_fin_viaje(partida, viaje)
+        if mensaje:
+            print(mensaje)
+
+    def mostrar_mapa_conocido(self, partida):
+        mapa = partida.mapa
+        cripta = partida.cripta
+        print(f'\nMapa conocido ({mapa.total_exploradas()} salas exploradas, '
+              f'{mapa.total_avistadas()} avistadas)')
+        for id_sala in mapa.salas_exploradas():
+            sala = cripta.sala(id_sala)
+            marca = ' <- estás aquí' if id_sala == partida.jugador.sala_id else ''
+            print(f'  [{sala.id}] {sala.nombre}{marca}')
+            for direccion in range(4):
+                salida = sala.salidas[direccion]
+                if salida is None:
+                    print(f'    {LETRAS[direccion]} -> (sin salida)')
+                    continue
+                estado = NOMBRE_PUERTA[mapa.puerta_recordada(sala, direccion)]
+                destino = salida.sala_destino
+                if destino is not None and mapa.explorada(destino):
+                    etiqueta = f'sala {destino.id} ({destino.nombre})'
+                else:
+                    etiqueta = f'sala {salida.destino} (sin explorar)'
+                print(f'    {LETRAS[direccion]} -> {etiqueta}: {estado}, costo {salida.puerta.costo}')
+        avistadas = mapa.ids_avistadas(cripta)
+        if avistadas:
+            print('  Salas avistadas: ' + ', '.join(str(i) for i in avistadas))
+        else:
+            print('  Salas avistadas: ninguna')
+
     def mostrar_estado(self, partida):
         jugador = partida.jugador
         sala = partida.sala_actual
@@ -47,8 +86,11 @@ class VistaConsola:
             if salida is None:
                 continue
             salidas += 1
-            estado = 'abierta'
-            if salida.puerta.cerrada:
+            # La vista deriva el estado del conocimiento del jugador, no de la
+            # realidad (003 FR-021, FR-025). Estando en la sala, ambos coinciden.
+            recordada = partida.mapa.puerta_recordada(sala, direccion)
+            estado = NOMBRE_PUERTA[recordada]
+            if recordada == RECORDADA_CERRADA:
                 estado = f'cerrada (llave {salida.puerta.llave})'
             # El costo de tránsito de cada salida de la sala actual (FR-023).
             print(f'  [{LETRAS[direccion]}] hacia sala {salida.destino}: {estado}, costo {salida.puerta.costo}')

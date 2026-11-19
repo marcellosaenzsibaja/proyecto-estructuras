@@ -104,11 +104,15 @@ def medir_guardado(acciones: int=50) -> dict:
 
 def ejecutar_todo(rapido: bool = False) -> dict:
     from src.servicios.banco_cazador import ejecutar_cazador
+    from src.servicios.banco_linea_tiempo import ejecutar_linea_tiempo
+    from src.servicios.banco_mapa import ejecutar_mapa
     from src.servicios.banco_resolubilidad import ejecutar_resolubilidad
     resultados = {'agenda': medir_agenda(), 'cache_fichas': medir_cache_fichas(), 'inventario': medir_inventario(), 'historial': medir_historial(), 'ordenamiento': medir_ordenamiento(), 'guardado': medir_guardado()}
     # Segunda parte: terreno y cazador (specs/001-terreno-cazador, US5).
     resultados.update(ejecutar_cazador(rapido))
     resultados.update(ejecutar_resolubilidad(rapido))
+    resultados.update(ejecutar_mapa(rapido))
+    resultados.update(ejecutar_linea_tiempo(rapido))
     return resultados
 
 def formatear(resultados: dict) -> str:

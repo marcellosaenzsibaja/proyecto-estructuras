@@ -2,13 +2,16 @@ import json
 import os
 import struct
 from src.estructuras_datos.ordenamiento import ordenar
-from src.modelos.entidades import Objeto, Puerta, Salida, Enemigo, Trampa
+from src.modelos.entidades import Efecto, Objeto, Puerta, Salida, Enemigo, Trampa
 from src.modelos.errores import ErrorDatos
-from src.modelos.partida import EN_CURSO, EV_ENEMIGO, Partida
+from src.modelos.linea_tiempo import EntradaLinea, K_POR_DEFECTO
+from src.modelos.partida import EFECTO_ANTORCHA, EFECTO_REGENERACION, EFECTO_VELOCIDAD, EFECTO_VENENO, EN_CURSO, EV_CIERRE, EV_ENEMIGO, EV_FIN_ANTORCHA, EV_FIN_VELOCIDAD, EV_REARME, EV_REGENERACION, EV_VENENO, Partida
 MAGIC = b'CRPT'
-# Versión 2: agrega el costo de cada puerta (P2, FR-001). Un archivo de la
-# versión 1 (primera parte) se rechaza como incompatible (FR-026).
-FORMATO_VERSION = 2
+# Versión 2: agrega el costo de cada puerta (001, FR-001). Versión 3: agrega el
+# mapa conocido (003, FR-046), la línea de tiempo (004, FR-028), el cursor del
+# inventario, los efectos activos y los eventos pendientes. Las versiones 1 y 2
+# se rechazan como incompatibles (003 FR-047, 004 FR-029).
+FORMATO_VERSION = 3
 _ESTADOS = ('en_curso', 'victoria', 'derrota')
 
 def _estado_a_codigo(estado):
@@ -17,7 +20,58 @@ def _estado_a_codigo(estado):
 def _codigo_a_estado(codigo):
     return _ESTADOS[codigo]
 
-def tomar_snapshot(partida) -> dict:
+def _tiempo_evento(portador, atributo):
+    evento = getattr(portador, atributo, None)
+    return -1 if evento is None else evento.tiempo
+
+def _efecto_crudo(efecto, atributo_evento='evento'):
+    if efecto is None:
+        return None
+    return {'valor': efecto.valor, 'fin': efecto.fin, 'proximo': _tiempo_evento(efecto, atributo_evento)}
+
+def _extra(partida, incluir_linea: bool) -> dict:
+    jugador = partida.jugador
+    cursor = -1
+    actual = jugador.inventario.nodo_actual()
+    for indice, nodo in enumerate(jugador.inventario.nodos()):
+        if nodo is actual:
+            cursor = indice
+            break
+    pendientes = []
+    for sala in partida.cripta.salas():
+        if not sala.contenido_incorporado:
+            continue
+        cierres = []
+        for direccion in range(4):
+            salida = sala.salidas[direccion]
+            cierres.append(-1 if salida is None else _tiempo_evento(salida.puerta, 'evento_cierre'))
+        rearmes = [_tiempo_evento(t, 'evento_rearme') for t in sala.trampas]
+        regeneras = [_tiempo_evento(e.regeneracion, 'evento') if e.regeneracion is not None else -1
+                     for e in sala.enemigos]
+        if any(c >= 0 for c in cierres) or any(r >= 0 for r in rearmes) or any(g >= 0 for g in regeneras):
+            pendientes.append({'sala': sala.id, 'cierres': cierres, 'rearmes': rearmes, 'regeneras': regeneras})
+    extra = {
+        'cursor': cursor,
+        'velocidad': jugador.velocidad,
+        'efectos': {
+            'veneno': _efecto_crudo(jugador.veneno),
+            'velocidad': _efecto_crudo(jugador.efecto_velocidad),
+            'antorcha': _efecto_crudo(jugador.antorcha),
+        },
+        'pendientes': pendientes,
+        'mapa': [[id_sala, estado, list(puertas)] for id_sala, estado, puertas in partida.mapa.volcar(partida.cripta)],
+    }
+    if incluir_linea:
+        extra['linea'] = [[e.numero, e.tiempo, e.tipo, e.argumento] for e in partida.linea.entradas]
+        extra['k'] = partida.linea.k
+        base = partida.linea.punto_base()
+        if base is not None:
+            estado = base.estado_azar
+            extra['base'] = {'snapshot': base.snapshot,
+                             'azar': [estado[0], list(estado[1]), estado[2]]}
+    return extra
+
+def tomar_snapshot(partida, incluir_linea: bool = True) -> dict:
     jugador = partida.jugador
     inventario = []
     for nodo in jugador.inventario.nodos():
@@ -35,15 +89,18 @@ def tomar_snapshot(partida) -> dict:
                 continue
             puertas.append({'destino': salida.destino, 'cerrada': salida.puerta.cerrada, 'llave': salida.puerta.llave, 'abierta_por_jugador': salida.puerta.abierta_por_jugador, 'costo': salida.puerta.costo})
         salas.append({'id': sala.id, 'rastro': sala.rastro, 'puertas': puertas, 'objetos': [{'uid': o.uid, 'id_ficha': o.ficha.id} for o in sala.objetos], 'enemigos': [{'instancia': e.id_actor, 'id_ficha': e.ficha.id, 'vida': e.vida, 'activo': e.activo, 'tiempo_siguiente': -1 if e.evento is None else e.evento.tiempo} for e in sala.enemigos], 'trampas': [{'instancia': t.instancia, 'id_ficha': t.ficha.id, 'armada': t.armada} for t in sala.trampas]})
-    return {'cripta_id': partida.cripta.datos.id, 'version_cripta': partida.cripta.datos.version, 'semilla': partida.semilla, 'tiempo_virtual': partida.reloj.tiempo_virtual, 'acciones_jugador': partida.acciones_jugador, 'enemigos_derrotados': partida.enemigos_derrotados, 'estado': partida.estado, 'siguiente_uid': partida._siguiente_uid, 'jugador': {'vida': jugador.vida, 'sala_id': jugador.sala_id, 'inventario': inventario}, 'salas': salas}
+    return {'cripta_id': partida.cripta.datos.id, 'version_cripta': partida.cripta.datos.version, 'semilla': partida.semilla, 'tiempo_virtual': partida.reloj.tiempo_virtual, 'acciones_jugador': partida.acciones_jugador, 'enemigos_derrotados': partida.enemigos_derrotados, 'estado': partida.estado, 'siguiente_uid': partida._siguiente_uid, 'jugador': {'vida': jugador.vida, 'sala_id': jugador.sala_id, 'inventario': inventario}, 'salas': salas, 'extra': _extra(partida, incluir_linea)}
 
 def version_compatible(snapshot: dict, cripta) -> bool:
     return snapshot.get('cripta_id') == cripta.datos.id and snapshot.get('version_cripta') == cripta.datos.version
 
-def restaurar_partida(snapshot: dict, cripta, proveedor) -> Partida:
+def restaurar_partida(snapshot: dict, cripta, proveedor, k_checkpoint=None) -> Partida:
     if not version_compatible(snapshot, cripta):
         raise ErrorDatos(f"El guardado no es compatible con esta cripta (esperaba {cripta.datos.id}@{cripta.datos.version}, el guardado es de {snapshot.get('cripta_id')}@{snapshot.get('version_cripta')})")
-    partida = Partida(cripta, proveedor, snapshot['semilla'])
+    extra = snapshot.get('extra') or {}
+    if k_checkpoint is None:
+        k_checkpoint = extra.get('k', K_POR_DEFECTO)
+    partida = Partida(cripta, proveedor, snapshot['semilla'], k_checkpoint)
     partida._iniciada = True
     partida.reloj.tiempo_virtual = snapshot['tiempo_virtual']
     partida.acciones_jugador = snapshot['acciones_jugador']
@@ -107,7 +164,70 @@ def restaurar_partida(snapshot: dict, cripta, proveedor) -> Partida:
     jugador.evento = None
     partida._esperando_jugador = partida.estado == EN_CURSO
     partida._grabando = True
+    _restaurar_extra(partida, extra)
     return partida
+
+def _restaurar_extra(partida, extra: dict):
+    if not extra:
+        return
+    jugador = partida.jugador
+    cursor = extra.get('cursor', -1)
+    if cursor >= 0:
+        nodos = list(jugador.inventario.nodos())
+        if cursor < len(nodos):
+            jugador.inventario.fijar_cursor(nodos[cursor])
+    ahora = partida.reloj.tiempo_virtual
+    efectos = extra.get('efectos') or {}
+    veneno = efectos.get('veneno')
+    if veneno is not None:
+        efecto = Efecto(EFECTO_VENENO, jugador, veneno['valor'], veneno['fin'])
+        if veneno['proximo'] >= ahora:
+            efecto.evento = partida.reloj.programar_evento(veneno['proximo'] - ahora, EV_VENENO, efecto)
+        jugador.veneno = efecto
+    velocidad = efectos.get('velocidad')
+    if velocidad is not None:
+        efecto = Efecto(EFECTO_VELOCIDAD, jugador, velocidad['valor'], velocidad['fin'])
+        if velocidad['proximo'] >= ahora:
+            efecto.evento = partida.reloj.programar_evento(velocidad['proximo'] - ahora, EV_FIN_VELOCIDAD, efecto)
+        jugador.efecto_velocidad = efecto
+    antorcha = efectos.get('antorcha')
+    if antorcha is not None:
+        efecto = Efecto(EFECTO_ANTORCHA, jugador, antorcha['valor'], antorcha['fin'])
+        if antorcha['proximo'] >= ahora:
+            efecto.evento = partida.reloj.programar_evento(antorcha['proximo'] - ahora, EV_FIN_ANTORCHA, efecto)
+        jugador.antorcha = efecto
+    if 'velocidad' in extra:
+        jugador.velocidad = extra['velocidad']
+    for fila in extra.get('pendientes') or []:
+        sala = partida.cripta.sala(fila['sala'])
+        for direccion, cierre in enumerate(fila['cierres']):
+            salida = sala.salidas[direccion]
+            if salida is None or cierre < ahora:
+                continue
+            if salida.puerta.evento_cierre is None:
+                salida.puerta.evento_cierre = partida.reloj.programar_evento(cierre - ahora, EV_CIERRE, salida.puerta)
+        for indice, rearme in enumerate(fila['rearmes']):
+            if rearme >= ahora and indice < len(sala.trampas):
+                trampa = sala.trampas[indice]
+                trampa.evento_rearme = partida.reloj.programar_evento(rearme - ahora, EV_REARME, trampa)
+        for indice, regenera in enumerate(fila['regeneras']):
+            if regenera >= ahora and indice < len(sala.enemigos):
+                enemigo = sala.enemigos[indice]
+                efecto = Efecto(EFECTO_REGENERACION, enemigo, enemigo.ficha.regeneracion or 0)
+                efecto.evento = partida.reloj.programar_evento(regenera - ahora, EV_REGENERACION, efecto)
+                enemigo.regeneracion = efecto
+    filas_mapa = extra.get('mapa')
+    if filas_mapa:
+        partida.mapa.cargar(partida.cripta, [(f[0], f[1], f[2]) for f in filas_mapa])
+    entradas = extra.get('linea')
+    if entradas is not None:
+        partida.linea.entradas = [EntradaLinea(e[0], e[1], e[2], e[3]) for e in entradas]
+        partida.linea.acciones = partida.acciones_jugador
+    base = extra.get('base')
+    if base is not None:
+        azar = base['azar']
+        partida.linea.agregar_punto(0, 0, 0, base['snapshot'],
+                                    (azar[0], tuple(azar[1]), azar[2]))
 
 def guardar_json(snapshot: dict, ruta: str):
     _asegurar_carpeta(ruta)
@@ -148,7 +268,17 @@ def _empacar_encabezado(snapshot: dict) -> bytes:
         partes.append(_empacar_str(item['id_ficha']))
         bandera = (1 if item['arma'] else 0) | (2 if item['armadura'] else 0)
         partes.append(struct.pack('>B', bandera))
+    partes.append(_empacar_bloque(json.dumps(snapshot.get('extra') or {}, ensure_ascii=False)))
     return b''.join(partes)
+
+def _empacar_bloque(texto: str) -> bytes:
+    datos = texto.encode('utf-8')
+    return struct.pack('>I', len(datos)) + datos
+
+def _desempacar_bloque(buf, pos):
+    n, = struct.unpack_from('>I', buf, pos)
+    pos += 4
+    return (buf[pos:pos + n].decode('utf-8'), pos + n)
 
 def _desempacar_encabezado(buf, pos):
     cripta_id, pos = _desempacar_str(buf, pos)
@@ -179,7 +309,8 @@ def _desempacar_encabezado(buf, pos):
         bandera, = struct.unpack_from('>B', buf, pos)
         pos += 1
         inventario.append({'uid': uid, 'id_ficha': id_ficha, 'arma': bool(bandera & 1), 'armadura': bool(bandera & 2)})
-    snapshot = {'cripta_id': cripta_id, 'version_cripta': version_cripta, 'semilla': semilla, 'tiempo_virtual': tiempo_virtual, 'acciones_jugador': acciones_jugador, 'enemigos_derrotados': enemigos_derrotados, 'estado': _codigo_a_estado(codigo_estado), 'siguiente_uid': siguiente_uid, 'jugador': {'sala_id': sala_id, 'vida': vida, 'inventario': inventario}}
+    texto_extra, pos = _desempacar_bloque(buf, pos)
+    snapshot = {'cripta_id': cripta_id, 'version_cripta': version_cripta, 'semilla': semilla, 'tiempo_virtual': tiempo_virtual, 'acciones_jugador': acciones_jugador, 'enemigos_derrotados': enemigos_derrotados, 'estado': _codigo_a_estado(codigo_estado), 'siguiente_uid': siguiente_uid, 'jugador': {'sala_id': sala_id, 'vida': vida, 'inventario': inventario}, 'extra': json.loads(texto_extra) if texto_extra else {}}
     return (snapshot, pos)
 
 def _empacar_sala(crudo: dict) -> bytes:
