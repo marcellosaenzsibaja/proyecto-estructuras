@@ -18,8 +18,8 @@ pergamino de retroceso, guardado y reproducción.
 `cazador`; la equivalencia de sus decisiones con un cálculo desde cero; la presentación de costos y
 cazadores en la vista; y las mediciones de `--bench` asociadas.
 
-**Fuera del alcance** (tienen su propia especificación): niebla de guerra e «ir a» (002),
-verificación de resolubilidad (003) y línea de tiempo (004).
+**Fuera del alcance** (tienen su propia especificación): verificación de resolubilidad (002),
+niebla de guerra e «ir a» (003) y línea de tiempo (004).
 
 ## Clarifications
 
