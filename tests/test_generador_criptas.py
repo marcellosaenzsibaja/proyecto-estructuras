@@ -210,5 +210,26 @@ class TestAmpliadaX10(unittest.TestCase):
         self.assertGreater(len(region_base), 1)
 
 
+class TestUbicacionDeLlaves(unittest.TestCase):
+    """Texto JSON de la ubicación de llaves y su entrega por la fuente en memoria (spec 002, FR-021, FR-030)."""
+
+    def test_texto_de_llaves_con_y_sin_enemigo_002_FR021(self):
+        datos = json.loads(gc.texto_llaves([('a', 4), ('b', 12, 'e-1203')]))
+        self.assertEqual(datos['llaves'][0]['id'], 'a')
+        self.assertNotIn('enemigo', datos['llaves'][0])
+        self.assertEqual(datos['llaves'][1]['enemigo'], 'e-1203')
+
+    def test_la_fuente_en_memoria_entrega_las_llaves_y_cuenta_la_solicitud_002_FR030(self):
+        textos = gc.cripta_sintetica(1, 3, 3)
+        fuente = gc.fuente_sintetica(textos, texto_llaves=gc.texto_llaves([('a', 1)]))
+        respuesta = fuente.obtener_llaves(fuente.id_cripta)
+        self.assertEqual(respuesta['llaves'][0]['sala'], 1)
+        self.assertEqual(fuente.solicitudes_realizadas, 1)
+
+    def test_sin_llaves_la_respuesta_es_vacia_002_FR030(self):
+        fuente = gc.fuente_sintetica(gc.cripta_sintetica(1, 3, 3))
+        self.assertEqual(fuente.obtener_llaves(fuente.id_cripta)['llaves'], [])
+
+
 if __name__ == '__main__':
     unittest.main()

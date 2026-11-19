@@ -898,6 +898,77 @@ Las tres últimas filas son defectos de P1 que se descubrieron al implementar
 
 ---
 
+# Segunda parte — Resolubilidad
+
+Sección del problema de P2 §5.4 que atiende la capacidad
+[002-verificacion-resolubilidad](specs/002-verificacion-resolubilidad/spec.md);
+su plan está en [plan.md](specs/002-verificacion-resolubilidad/plan.md) y
+[research.md](specs/002-verificacion-resolubilidad/research.md). Mediciones de
+`python main.py --bench` en el equipo local; los tiempos varían entre máquinas.
+
+## P2 5.4 Verificación de resolubilidad
+
+**Problema.** Antes de jugar hay que decidir si la cripta puede ganarse (FR-007)
+y, si no, explicar por qué (FR-011 a FR-016). Obtener una llave puede abrir una
+región entera, y repetir el recorrido completo por cada llave no es aceptable
+(FR-028). El reporte necesita la frontera bloqueada, la sala de cada llave y el
+ciclo concreto cuando una llave depende de sí misma.
+
+**Alternativas consideradas.**
+1. *Repetir la exploración desde la sala inicial cada vez que se obtiene una
+   llave*, O(|llaves| · (|V| + |E|)). Implementada solo como línea base en
+   `banco_resolubilidad.verificar_ingenuo`.
+2. *Escaneo lineal de un arreglo de disponibilidad para escoger la llave de
+   menor id*, O(|K|) por extracción, O(|K|²) en total. Descartada en el plan.
+3. *`heapq`, `deque`, `dict` o `set`.* Prohibidos por el Principio I.
+4. *Decisión:* un recorrido por anchura reactivo. Una cola con puntero entero
+   explora salas; las puertas cerradas con llave no obtenida se anotan en una
+   lista por llave; al agotarse la cola se extrae del montículo propio
+   (`MonticuloMin` de la primera parte) la llave disponible de menor id, y solo
+   se reactivan las puertas que la esperaban. Visitadas, obtenidas y salas por
+   llave son arreglos indexados (`Sala.indice` y el índice de la llave en la
+   lista ordenada con `ordenar()` y la búsqueda binaria propia).
+
+**Decisión sobre el diagnóstico.** La frontera sale de las listas de espera al
+terminar el recorrido. Para los ciclos se unen las salas no alcanzadas en
+componentes por salidas pasables, se calcula el nivel de cada componente por
+anchura desde la región alcanzable y cada llave K depende de las llaves que
+exigen las puertas de entrada de su componente (nivel anterior). Un DFS
+iterativo con pila propia y tres estados encuentra los ciclos, que se
+normalizan iniciando en la llave de menor id y se ordenan.
+
+**Complejidad.** Recorrido O(|V| + |E|); montículo O(|K| log |K|); diagnóstico
+O(|V| + |E| + |K|) más la ordenación de las listas de entrada. En conjunto es
+aproximadamente lineal.
+
+**Evidencia empírica** (`--bench`, 1 000 salas, semilla 2026):
+
+| Escenario | Reactivo | Ingenuo |
+| --- | --- | --- |
+| cadena de 10 llaves | 0,40 ms | 1,1 ms |
+| cadena de 100 llaves | 0,69 ms | 11 ms |
+| cadena de 500 llaves | 2,1 ms | 119 a 160 ms |
+| cuadrícula con 394 llaves (no resoluble, con diagnóstico) | 5,8 a 6,1 ms | 224 a 228 ms |
+
+Todos los escenarios cumplen el límite de 200 ms y producen el mismo orden y el
+mismo veredicto que la alternativa ingenua (`tests/test_bench_resolubilidad.py`).
+
+**Coincidencia con el plan.** Coincide en las estructuras y en el algoritmo;
+las diferencias de nombres de clases y de archivos de prueba están en
+`specs/002-verificacion-resolubilidad/tasks.md`, sección «Desviaciones».
+
+**Límites conocidos.**
+- No se midió contra la cripta publicada más grande del servicio, solo con
+  criptas sintéticas de 1 000 salas.
+- Una dependencia entre llaves se define por las puertas de entrada del nivel
+  anterior; con varias puertas de entrada es una aproximación (cualquiera de
+  ellas podría bastar) y puede señalar un ciclo que otra ruta evitaría.
+- El diagnóstico hace un recorrido lineal adicional sobre la parte no
+  alcanzada (no uno por llave).
+- `--cargar` y `--replay` no ejecutan la verificación.
+
+---
+
 ## Nota transversal de la segunda parte: cumplimiento del Principio I
 
 `tests/test_restricciones.py` verifica automáticamente con `ast` que los
@@ -906,5 +977,5 @@ fuente en memoria, referencia teórica y utilidades de prueba) no importan
 `heapq`, `bisect`, `collections`, `queue`, `networkx` ni `functools.lru_cache`,
 ni usan diccionarios, conjuntos, `sorted` o `.sort`. El generador de criptas
 escribe texto JSON y solo se leen los diccionarios que devuelve `json.loads`.
-`src/servicios/banco_cazador.py` usa diccionarios únicamente para las filas
+`src/servicios/banco_cazador.py` y `src/servicios/banco_resolubilidad.py` usan diccionarios únicamente para las filas
 del reporte de `--bench`, que no resuelven ningún problema evaluado.

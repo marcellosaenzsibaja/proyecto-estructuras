@@ -16,6 +16,7 @@ def _construir_bundle_offline(carpeta):
     _escribir(os.path.join(carpeta, 'criptas.json'), {'criptas': [{'id': 'demo'}]})
     _escribir(os.path.join(carpeta, 'demo', 'datos_generales.json'), {'id': 'demo', 'version': 'v1', 'salas_total': 2, 'sala_inicial': 1, 'sala_salida': 2, 'llave_salida': None, 'presupuesto_solicitudes': 20, 'inventario_max': 10, 'jugador': {'vida_max': 30, 'ataque': 6, 'defensa': 2, 'velocidad': 100}})
     _escribir(os.path.join(carpeta, 'demo', 'version.json'), {'version': 'v1'})
+    _escribir(os.path.join(carpeta, 'demo', 'llaves.json'), {'llaves': []})
     _escribir(os.path.join(carpeta, 'demo', 'esqueleto', 'pagina_1.json'), {'total_paginas': 1, 'salas': [{'id': 1, 'nombre': 'Entrada', 'salidas': {'N': {'sala': 2}}}, {'id': 2, 'nombre': 'Salida', 'salidas': {'S': {'sala': 1}}}]})
     _escribir(os.path.join(carpeta, 'demo', 'salas', '1.json'), {'sala': 1, 'enemigos': [], 'objetos': ['itm_daga'], 'trampas': []})
     _escribir(os.path.join(carpeta, 'demo', 'salas', '2.json'), {'sala': 2, 'enemigos': [], 'objetos': [], 'trampas': []})
@@ -34,7 +35,7 @@ class PruebasMain(unittest.TestCase):
         return os.path.join(self.carpeta, nombre)
 
     def _argv(self, *extra):
-        return ['--offline', self.carpeta, '--cripta', 'demo', '--semilla', '1', '--bitacora', self._ruta('bitacora.log'), '--puntajes-ruta', self._ruta('puntajes.json'), '--cache-ruta', self._ruta('cache.json'), *extra]
+        return ['--offline', self.carpeta, '--cripta', 'demo', '--semilla', '1', '--bitacora', self._ruta('bitacora.log'), '--puntajes-ruta', self._ruta('puntajes.json'), '--cache-ruta', self._ruta('cache.json'), '--forzar', *extra]
 
     def test_bench_no_requiere_ninguna_cripta(self):
         with patch('builtins.print'):

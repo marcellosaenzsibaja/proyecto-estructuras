@@ -5,7 +5,7 @@ mismas funciones del generador (G1); la cripta se carga con el cargador real a
 través de una FuenteMemoria. No se crean diccionarios (T005).
 """
 from src.modelos.direcciones import OPUESTA, indice_direccion
-from src.servicios.generador_criptas import cargar_cripta_sintetica, fuente_sintetica, texto_sala
+from src.servicios.generador_criptas import cargar_cripta_sintetica, fuente_sintetica, texto_llaves, texto_sala
 
 
 class ConexionIncoherente(ValueError):
@@ -58,3 +58,12 @@ def cripta_desde_conexiones(conexiones: list, sala_inicial: int = 1, sala_salida
     textos = textos_desde_conexiones(conexiones)
     fuente = fuente_sintetica(textos, sala_inicial=sala_inicial, sala_salida=sala_salida, **datos)
     return cargar_cripta_sintetica(fuente)
+
+
+def cripta_con_llaves(conexiones: list, llaves: list, sala_inicial: int = 1, sala_salida: int = None,
+                      llave_salida: str = 'itm_llave_salida_sint', **datos):
+    """(cripta, fuente) con la ubicación de llaves [(id, sala) o (id, sala, enemigo), ...] (spec 002)."""
+    textos = textos_desde_conexiones(conexiones)
+    fuente = fuente_sintetica(textos, sala_inicial=sala_inicial, sala_salida=sala_salida, llave_salida=llave_salida,
+                              texto_llaves=texto_llaves(llaves), **datos)
+    return cargar_cripta_sintetica(fuente), fuente

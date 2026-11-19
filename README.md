@@ -11,7 +11,8 @@ Proyecto de Estructuras de Datos II, II Ciclo 2026.
 
 - Herramienta: GitHub spec-kit (`specify-cli`), versión **1.4.1.dev0**
   (todo el grupo debe usar la misma).
-- Agente de programación: **Claude Code**.
+- Agente de programación: **Claude Code** (capacidad 001) y **Antigravity** (capacidad 002: `/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, `/speckit-tasks`). Al agotarse la cuota de Antigravity, el análisis de consistencia y la implementación de la capacidad 002 se hicieron con **Claude (claude.ai)**; queda registrado en `PROMPTS_LLM.md`.
+- Integración de Antigravity: `specify integration install agy --force` (convive con la de Claude).
 - Inicialización usada: `specify init --here --integration claude --script ps`.
 - Comandos del flujo (en esta versión se escriben con guion):
   `/speckit-constitution`, `/speckit-specify`, `/speckit-clarify`,
@@ -53,6 +54,8 @@ genera una y se muestra al iniciar la partida.
 | `--cargar <archivo>` | Retoma una partida guardada (`.bin` o `.json`) en vez de empezar una nueva |
 | `--puntajes-ruta <archivo>` | Archivo de la tabla de puntajes (por defecto `puntajes.json`) |
 | `--bench` | Mide el desempeño de los subsistemas propios del proyecto y termina, sin jugar |
+| `--verificar <cripta>` | Verifica si la cripta es resoluble, imprime el reporte y termina sin instanciar la vista (código 0 resoluble, 1 no resoluble, 2 error) |
+| `--forzar` | Juega una cripta aunque no sea resoluble; sin esta opción la partida no inicia y se muestra el reporte |
 
 Ejemplos:
 
@@ -141,6 +144,8 @@ las secciones del terreno y el cazador (`specs/001-terreno-cazador`):
 | `[ciclo_eventos]` | Peor ciclo entre dos decisiones del jugador con 30 cazadores; `CUMPLE` si es menor que 20 ms |
 | `[revision_p1]` | Agenda e historial de retroceso de P1 con la carga nueva |
 | `[determinismo]` | Misma semilla, mismas criptas sintéticas |
+| `[resolubilidad]` | Recorrido reactivo frente a repetir el recorrido por llave, con cadenas de 10 a 500 llaves y una cuadrícula de 1 000 salas; `CUMPLE` si es menor que 200 ms |
+| `[resolubilidad_determinismo]` | Dos verificaciones de la misma cripta dan el mismo orden |
 
 ## Pruebas
 
@@ -172,6 +177,19 @@ python -m pytest tests/test_restricciones.py tests/test_generador_criptas.py tes
   referencia teórica (`tests/referencia_cazador.py`).
 - `test_reutilizacion_cazador.py`: cambios de puertas alejadas no provocan
   recálculo.
+
+**002 — Verificación de resolubilidad** (ver
+`specs/002-verificacion-resolubilidad/quickstart.md`):
+
+```
+python -m unittest tests.test_busqueda_binaria tests.test_monticulo_llaves tests.test_resolubilidad tests.test_resolubilidad_irresoluble tests.test_verificador_servicio tests.test_cli_verificar tests.test_bench_resolubilidad tests.test_restricciones -v
+```
+
+- `test_resolubilidad.py` y `test_resolubilidad_irresoluble.py`: casos 1 a 3 del
+  Apéndice B de resolubilidad y el diagnóstico (llaves, frontera, ciclos).
+- `test_cli_verificar.py`: caso 4 (sin `--forzar` la partida no inicia), `--verificar`
+  y sus códigos de salida.
+- `test_bench_resolubilidad.py`: equivalencia con la alternativa ingenua y límite de 200 ms.
 
 ## Documentación adicional
 

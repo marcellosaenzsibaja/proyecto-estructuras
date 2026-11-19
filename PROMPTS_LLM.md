@@ -199,3 +199,16 @@
 - Herramienta: Antigravity con spec-kit (`/speckit-tasks`)
 - Prompt: "Descomponer el plan de la verificación de resolubilidad (specs/002-verificacion-resolubilidad) en tareas pequeñas y verificables, ordenadas por dependencias. Cada tarea debe referenciar los requisitos FR-NNN que atiende; no deben existir tareas sin requisito asociado. Cada escenario de aceptación debe tener al menos una prueba automatizada que cite el identificador del requisito. Los cuatro casos del Apéndice B de Resolubilidad deben quedar cubiertos por pruebas. Incluye las tareas de: modelo de resolubilidad, desempate por id, detección de ciclos iterativa, obtención y persistencia de la ubicación de llaves, las opciones --verificar y --forzar, el reporte al iniciar partida, los escenarios de --bench (1 000 salas y cadenas de llaves encadenadas frente a la alternativa ingenua) y la prueba que verifique la ausencia de dict, set, heapq, bisect y collections en los módulos nuevos. Las pruebas de cada historia se escriben antes de su implementación."
 - Uso de la respuesta: generar `specs/002-verificacion-resolubilidad/tasks.md` con 32 tareas estructuradas en 8 fases, trazadas a requisitos funcionales y cubriendo los 4 casos del Apéndice B.
+
+## Entrada 34
+- Fecha aproximada: 18 de noviembre de 2026
+- Herramienta: Claude (claude.ai), por agotarse la cuota de Antigravity
+- Prompt: resumen; el texto íntegro está en el historial de la conversación. Se pidió ejecutar el análisis de consistencia de `/speckit-analyze` sobre `spec.md`, `plan.md` y `tasks.md` de la capacidad 002.
+- Uso de la respuesta: revisión de consistencia sin cambios en los artefactos; resultado: los 31 requisitos con tarea, sin estructuras prohibidas en el plan y tres observaciones menores (T012 frente a FR-029, código de salida 1 al abortar, vigilancia de `tests/`).
+
+## Entrada 35
+- Fecha aproximada: 18 de noviembre de 2026
+- Herramienta: Claude (claude.ai)
+- Prompt: resumen; el texto íntegro está en el historial de la conversación. Se pidió implementar las tareas T001 a T031 de `specs/002-verificacion-resolubilidad/tasks.md` (verificación de resolubilidad, llaves, `--verificar`, `--forzar`, bench) con pruebas y documentación.
+- Uso de la respuesta: código de `src/modelos/resolubilidad.py`, `src/estructuras_datos/busqueda_binaria.py`, `src/servicios/verificador_servicio.py`, `src/servicios/banco_resolubilidad.py`, cambios en adaptadores, `main.py`, generador y pruebas; actualización de `README.md`, `DECISIONES.md` y `tasks.md`.
+

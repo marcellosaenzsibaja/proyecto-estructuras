@@ -16,7 +16,7 @@ LIMITE_LOTE = 10
 
 class FuenteMemoria(FuenteDatos):
 
-    def __init__(self, id_cripta: str, texto_datos: str, paginas: list, textos_contenido=None, textos_catalogo=None, version_catalogo='cat-sintetico'):
+    def __init__(self, id_cripta: str, texto_datos: str, paginas: list, textos_contenido=None, textos_catalogo=None, version_catalogo='cat-sintetico', texto_llaves=None):
         self.id_cripta = id_cripta
         self._texto_datos = texto_datos
         self._paginas = list(paginas)
@@ -25,6 +25,7 @@ class FuenteMemoria(FuenteDatos):
         # Catálogo: lista de pares (id, texto); se recorre linealmente.
         self._catalogo = list(textos_catalogo) if textos_catalogo is not None else []
         self._version_catalogo = version_catalogo
+        self._texto_llaves = texto_llaves if texto_llaves is not None else '{"llaves": []}'
         self.solicitudes_realizadas = 0
         self.presupuesto = None
 
@@ -93,3 +94,7 @@ class FuenteMemoria(FuenteDatos):
 
     def obtener_version_catalogo(self) -> dict:
         return self._leer('{"version": ' + json.dumps(self._version_catalogo) + '}', 'versión del catálogo')
+
+    def obtener_llaves(self, cripta_id: str) -> dict:
+        self._verificar_cripta(cripta_id)
+        return self._leer(self._texto_llaves, f'llaves de {cripta_id}')
