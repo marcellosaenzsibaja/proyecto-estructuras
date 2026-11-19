@@ -240,8 +240,11 @@ def _partida_con_cazadores(semilla, ancho, alto, cantidad, rango):
     return partida
 
 
-def _correr_ciclo(semilla, ancho, alto, cazadores, rango, acciones):
+def _correr_ciclo(semilla, ancho, alto, cazadores, rango, acciones, con_linea=True):
     partida = _partida_con_cazadores(semilla, ancho, alto, cazadores, rango)
+    if not con_linea:
+        partida.registra_linea = False
+        partida.linea.activa = False
     partida.decisor_cazadores  # se crea fuera de la medición (infraestructura)
     rng = random.Random(semilla)
     tiempos = []
@@ -265,19 +268,26 @@ def medir_ciclo(semilla=7, ancho=40, alto=40, cazadores=30, rango=1500, acciones
     para descartar interrupciones del sistema operativo. Se informa además el
     peor valor bruto observado.
     """
-    corridas = [_correr_ciclo(semilla, ancho, alto, cazadores, rango, acciones) for _ in range(repeticiones)]
-    partida = corridas[0][0]
-    largo = min(len(t) for _, t in corridas)
-    minimos = [min(t[i] for _, t in corridas) for i in range(largo)]
-    peor_bruto = max(max(t) for _, t in corridas)
-    decisor = partida.decisor_cazadores
-    activos = sum(1 for s in partida.cripta.salas() for e in s.enemigos if e.activo)
-    ms_max = max(minimos)
-    return [_fila('ciclo_eventos_30_cazadores', semilla, len(partida.cripta), activos,
-                  decisor.salas_examinadas_total / max(1, decisor.busquedas + decisor.reutilizaciones),
-                  sum(minimos) / len(minimos), ms_max, decisor.reutilizaciones, busquedas=decisor.busquedas,
-                  ms_max_bruto=peor_bruto, repeticiones=repeticiones, limite_ms=LIMITE_CICLO_MS,
-                  resultado='CUMPLE' if ms_max < LIMITE_CICLO_MS else 'NO CUMPLE')]
+    filas = []
+    for con_linea in (True, False):
+        corridas = [_correr_ciclo(semilla, ancho, alto, cazadores, rango, acciones, con_linea)
+                    for _ in range(repeticiones)]
+        partida = corridas[0][0]
+        largo = min(len(t) for _, t in corridas)
+        minimos = [min(t[i] for _, t in corridas) for i in range(largo)]
+        peor_bruto = max(max(t) for _, t in corridas)
+        decisor = partida.decisor_cazadores
+        activos = sum(1 for s in partida.cripta.salas() for e in s.enemigos if e.activo)
+        ms_max = max(minimos)
+        nombre = 'ciclo_eventos_30_cazadores' if con_linea else 'ciclo_eventos_30_cazadores_sin_linea'
+        filas.append(_fila(nombre, semilla, len(partida.cripta), activos,
+                           decisor.salas_examinadas_total / max(1, decisor.busquedas + decisor.reutilizaciones),
+                           sum(minimos) / len(minimos), ms_max, decisor.reutilizaciones,
+                           busquedas=decisor.busquedas, ms_max_bruto=peor_bruto,
+                           repeticiones=repeticiones, k=partida.linea.k if con_linea else 'sin_linea',
+                           copias=partida.linea.copias(), limite_ms=LIMITE_CICLO_MS,
+                           resultado='CUMPLE' if ms_max < LIMITE_CICLO_MS else 'NO CUMPLE'))
+    return filas
 
 
 # -- revision_p1 -------------------------------------------------------------

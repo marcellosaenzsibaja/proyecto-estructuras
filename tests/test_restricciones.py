@@ -31,6 +31,11 @@ ARCHIVOS_VIGILADOS = [
     'tests/test_resolubilidad_irresoluble.py',
     'tests/test_bench_resolubilidad.py',
     'tests/test_monticulo_llaves.py',
+    'src/modelos/mapa_conocido.py',
+    'src/modelos/linea_tiempo.py',
+    'src/modelos/resumen_historia.py',
+    'src/modelos/viaje.py',
+    'tests/referencia_conocido.py',
 ]
 
 MODULOS_PROHIBIDOS = ['heapq', 'bisect', 'collections', 'queue', 'networkx', 'igraph', 'graphlib', 'sortedcontainers']
