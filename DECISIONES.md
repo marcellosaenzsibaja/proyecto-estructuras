@@ -969,6 +969,344 @@ las diferencias de nombres de clases y de archivos de prueba están en
 
 ---
 
+# Segunda parte — Niebla de guerra
+
+Especificación: [`specs/003-niebla-guerra/spec.md`](specs/003-niebla-guerra/spec.md).
+Plan: [`specs/003-niebla-guerra/plan.md`](specs/003-niebla-guerra/plan.md).
+Investigación: [`specs/003-niebla-guerra/research.md`](specs/003-niebla-guerra/research.md).
+
+## P2 5.3 El mapa conocido
+
+**Problema.** El jugador solo conoce la parte del mapa que ha explorado. Hay que
+responder en tiempo constante si una sala está explorada, avistada o
+desconocida, y cuál era el estado recordado de una puerta (003 FR-050), porque
+son consultas de cada vista, de cada paso de un viaje y de cada entrada con
+antorcha. Explorar salas nuevas debe costar proporcionalmente a las reveladas y
+no al tamaño del mapa ya conocido (FR-051). El mapa se revierte con el pergamino
+y se reconstruye en la línea de tiempo, así que registrar e invertir cambios
+debe ser barato (FR-052). Y la ruta de «ir a» se calcula sobre el subgrafo
+conocido, con el mismo desempate del cazador (FR-030 a FR-033), en menos de 5 ms
+con el mapa completo (FR-053).
+
+**Alternativas consideradas para el conocimiento.**
+
+1. *Tabla hash propia de id de sala a estado* (`TablaHash` de P1). Constante
+   amortizado, pero paga hash y colisiones en el camino caliente.
+2. *Un atributo nuevo en `Sala`.* Lo más rápido, y descartado: mezcla el
+   conocimiento del jugador con el mapa descargado, que es justo lo que FR-021
+   prohíbe, y dos partidas sobre la misma cripta cargada compartirían
+   conocimiento.
+3. *Decisión:* listas indexadas por `Sala.indice`, el índice compacto 0..n−1 que
+   P1 ya asigna al cargar: una lista de n estados de sala y una de 4n estados
+   recordados de puerta, más una lista de ids explorados en orden. Acceso por
+   posición sin hash, y el conocimiento vive en su propio objeto.
+4. *`dict`, `set`.* Prohibidos por el Principio I.
+
+**Alternativas consideradas para la memoria de puertas.** Guardar una anotación
+por lado de la conexión, o escribir las dos en cada observación. La primera
+versión del `research.md` eligió guardar solo el lado observado; la
+implementación demostró que está mal y la especificación se corrigió antes que
+el código, en confirmaciones separadas (§2.6). El motivo: el jugador está en la
+sala A y observa la puerta A–B; si después una ruta pasa por B hacia A, el lado
+de B seguiría «sin observar» y la ruta no usaría una puerta que el jugador vio.
+El enunciado habla del estado de **cada puerta**, y FR-008 dice que observar
+desde cualquiera de sus dos salas es la misma observación. La versión final
+escribe las dos entradas.
+
+**Decisión sobre compartir la búsqueda con el cazador (lo que pide P2 §5.3).**
+Se comparten las estructuras propias (`MonticuloMin` y `RegistroBusqueda`) y
+**no** se comparte el recorrido. Dos razones:
+
+- El bucle del cazador corre decenas de veces por ciclo de eventos con un límite
+  de 20 ms; «ir a» corre una vez por orden del jugador con 5 ms por paso.
+  Meterle una llamada indirecta por cada salida examinada es trabajo pagado en
+  el camino crítico más ajustado para beneficio del más holgado.
+- El cazador mira el estado **real** de las puertas y no mira el conocimiento;
+  «ir a» mira exactamente lo contrario y nunca la realidad (FR-021, FR-023). Un
+  parámetro que conmute entre las dos fuentes de verdad en la misma clase hace
+  fácil escribir sin darse cuenta un cazador que respeta la niebla de guerra o un
+  «ir a» que la atraviesa, que son los dos peores defectos que esta capacidad
+  puede introducir. Separados, ese error no se puede escribir: `BuscadorConocido`
+  no recibe la cripta real por ningún lado.
+
+El recorrido duplicado son unas veinte líneas; el trabajo real de
+implementación, que son las estructuras, se comparte.
+
+**Decisión sobre el recálculo.** La ruta se recalcula entera antes de cada paso,
+sin conservar nada entre pasos (FR-035). No hay estado de ruta que invalidar, así
+que no hay forma de que el viaje siga una ruta obsoleta. Es la decisión opuesta a
+la del cazador (§P2 5.2), y la justifica que aquí no hay límite de 20 ms que
+obligue a reutilizar.
+
+**Análisis de complejidad.** Con n salas de la cripta y c salas conocidas:
+
+| Operación | Costo |
+| --- | --- |
+| Estado de una sala, estado recordado de una puerta | O(1) |
+| Explorar una sala y avistar sus vecinas | O(1) (a lo sumo 4 vecinas) |
+| Observar las puertas de una sala | O(1) (a lo sumo 4 salidas, dos entradas cada una) |
+| Registrar e invertir un cambio | O(1) por posición cambiada |
+| Recorrer el mapa conocido para la vista | O(c), no O(n) |
+| Un paso de «ir a» | O((c + salidas conocidas) log c) |
+| Memoria | O(n) enteros pequeños, fija al iniciar la partida |
+
+Construir las listas cuesta O(n) una sola vez al iniciar la partida, no en cada
+exploración: por eso FR-051 se cumple.
+
+**Evidencia empírica.** `--bench`, rejilla sintética determinista por semilla.
+
+Consultas (FR-050), 400 000 consultas por fila:
+
+| Salas exploradas | ns por consulta |
+| --- | --- |
+| 100 | 96.3 |
+| 400 | 82.8 |
+| 1 600 | 69.4 |
+
+El costo por consulta no crece con el mapa conocido; la bajada es efecto de la
+caché del procesador al repetir el recorrido, no una mejora algorítmica.
+
+Exploración con antorcha (FR-051, SC-004). Las dos filas usan la misma rejilla de
+ancho 10 y el mismo objetivo relativo, así que revelan exactamente la misma
+vecindad; solo cambia cuántas salas lejanas ya estaban exploradas:
+
+| Mapa ya conocido | reveladas | salas tocadas | puertas tocadas |
+| --- | --- | --- | --- |
+| 40 salas | 5 | **17** | **8** |
+| 400 salas | 5 | **17** | **8** |
+
+Los conteos son idénticos con un mapa diez veces mayor, que es SC-004 verificado
+por conteo y no por tiempo.
+
+Un paso de «ir a» (FR-053):
+
+Medido en el equipo local del grupo, mapa conocido completo:
+
+| Salas conocidas | examinadas máx | ms media | ms máx | límite | resultado |
+| --- | --- | --- | --- | --- | --- |
+| 100 | 97 | 0.13 | 0.20 | 5 | CUMPLE |
+| 196 | 177 | 0.25 | 1.70 | 5 | CUMPLE |
+| **400 (escala de referencia)** | **386** | **0.54** | **1.75** | 5 | **CUMPLE** |
+| 784 | 685 | 1.23 | 4.67 | 5 | CUMPLE |
+| 1 600 (estrés sintético) | 1 396 | 2.75 | 7.80 | 5 | **NO CUMPLE** |
+
+**Dónde se mide el límite y por qué.** P2 §6.1 aplica los 5 ms al «mapa conocido
+completo de la cripta de referencia», y el servicio publica criptas de ~20 salas
+a varios cientos. La prueba automatizada de FR-053 usa por eso 400 salas, que es
+el techo de esa escala, y ahí el peor caso usa el 35 % del presupuesto. La fila
+de 1 600 salas es el tamaño sintético de estrés que la capacidad 001 usa para el
+cazador; **no cumple el límite y se reporta igual** en `--bench`, marcada como
+fuera de la escala de referencia, porque esconderla sería peor que explicarla. Si
+la cripta de referencia publicada resultara de ese orden, hay que aplicar la
+mitigación de la sección de límites.
+
+**Optimización del bucle interno.** La primera versión costaba 2.59 ms de media
+y 4.64 ms de máximo con 1 600 salas, y superaba el límite (6.43 ms) cuando la
+prueba corría junto con la batería completa. La versión entregada baja a 1.83 ms
+de media y 3.02 ms de máximo en ese mismo tamaño, **sin cambiar el algoritmo**:
+`examinadas_max` sigue siendo exactamente 1 396 y la prueba de equivalencia
+contra `tests/referencia_conocido.py` sigue pasando. Solo elimina coste constante
+de Python: lleva a variables locales las listas del mapa conocido y del registro,
+y comprueba el estado recordado de la puerta y el estado de la sala vecina con dos
+indexaciones en lugar de una llamada a función por cada salida examinada.
+
+Y la comparación que respalda no compartir el recorrido:
+
+| Escenario | ms media |
+| --- | --- |
+| Paso de «ir a» sobre el mapa conocido | 2.34 |
+| El mismo buscador aislado | 2.40 |
+
+**Límites conocidos.**
+
+- **Es el margen más ajustado del proyecto y el único límite que se rompe fuera
+  de la escala de referencia.** A 400 salas conocidas el peor caso usa 1.75 de
+  los 5 ms (35 %); a 784 llega a 4.67 ms (93 %); a 1 600 lo supera con 7.80 ms.
+  El peor caso examina casi todas las salas conocidas, porque buscar el destino
+  más lejano sobre un mapa completo es casi un recorrido total: con este
+  algoritmo el costo es lineal en salas conocidas y no se baja sin cambiarlo.
+  **La mitigación concreta, si hiciera falta:** guardar el campo de distancias
+  desde el destino y reutilizarlo mientras no cambie el conocimiento, igual que
+  el cazador reutiliza su búsqueda mientras no cambien las puertas (§P2 5.2).
+  Eso convierte un viaje de k pasos en una sola búsqueda y deja cada paso en
+  O(1), al precio de una invalidación que habría que verificar como se verificó
+  la del cazador. No se hizo porque el requisito, medido donde el enunciado lo
+  pone, se cumple con el 35 % del presupuesto, y la complejidad extra no está
+  justificada por los datos de hoy.
+- La reversión del mapa supone que las exploraciones de una acción se deshacen en
+  orden inverso, y por eso la lista de salas exploradas se recorta por el final.
+  Es cierto con el mecanismo de P1 §4.6 y lo seguirá siendo mientras ese
+  mecanismo no cambie; si alguna vez se deshicieran cambios fuera de orden, haría
+  falta una lista doblemente enlazada.
+- «ir a» no abre puertas aunque el jugador tenga la llave (FR-041). Es lo que
+  pide el enunciado y hace el comando menos útil de lo que un jugador esperaría
+  cuando su ruta pasa por una puerta que él mismo podría abrir.
+- Una sala explorada por la antorcha conserva su contenido sin incorporar, así
+  que un viaje que la atraviesa puede detenerse en ella al despertar enemigos o
+  disparar trampas. Es correcto por FR-018, pero sorprende a quien no lo espera.
+
+# Segunda parte — Línea de tiempo
+
+Especificación: [`specs/004-linea-de-tiempo/spec.md`](specs/004-linea-de-tiempo/spec.md).
+Plan: [`specs/004-linea-de-tiempo/plan.md`](specs/004-linea-de-tiempo/plan.md).
+Investigación: [`specs/004-linea-de-tiempo/research.md`](specs/004-linea-de-tiempo/research.md).
+
+## P2 5.5 Línea de tiempo y puntos de control
+
+**Problema.** Hay que poder consultar el estado de la partida en cualquier
+instante pasado sin modificarla (004 FR-001, FR-007), con a lo sumo un punto de
+control cada K acciones del jugador (FR-020), aplicando o deshaciendo los
+cambios de a lo sumo K acciones por consulta (FR-022), con una memoria que crece
+con los cambios ocurridos y no como «acciones por tamaño del estado» (FR-024),
+y con la consulta por debajo de 50 ms en una partida de 5 000 acciones
+(FR-030). Ubicar el punto de control más cercano es una búsqueda frecuente
+(FR-026) y el recorte por pergamino no debe recorrer la historia (FR-015).
+
+**Alternativas consideradas.**
+
+1. *Reconstruir hacia atrás invirtiendo cambios*, reutilizando el mecanismo de
+   deshacer de P1 §4.6. A favor: ya existe y está probado; no necesita el estado
+   del generador aleatorio. En contra, y es lo decisivo: esas funciones de
+   deshacer son cierres en memoria, no datos, así que no se pueden escribir en
+   el archivo de partida y FR-028 obligaría a mantener en paralelo una segunda
+   representación de los mismos cambios. Además deshacer y volver a aplicar pasa
+   por el estado vivo, que es justo lo que FR-007 prohíbe tocar.
+2. *Reconstruir hacia adelante re-simulando desde un punto de control.* Lo que
+   hay que almacenar entre puntos es la secuencia de acciones del jugador, que ya
+   es un dato serializable; la consulta ocurre en una partida aparte que se
+   descarta al terminar. Exige guardar el estado de `random.Random` en cada
+   punto (FR-025), que el enunciado ya anticipa.
+3. *Guardar los puntos de control en el archivo de partida.* Descartada: con
+   K = 100 y 5 000 acciones serían 51 copias completas en disco, el mismo
+   crecimiento que FR-024 quiere evitar, cuando la historia cabe en una lista de
+   acciones.
+4. *Escaneo lineal de la lista de puntos* para hallar el anterior a un instante.
+   Descartada por FR-026. *Calcular el índice dividiendo el instante entre K* no
+   funciona: los instantes no son proporcionales al número de acciones, porque
+   cada acción cuesta distinto según el terreno (001 §3.1).
+5. *`bisect`, `dict`, `deque`.* Prohibidos por el Principio I.
+
+**Decisión.** Alternativa 2. La línea de tiempo es una lista de entradas
+(número de acción, instante, tipo y argumento) más una lista de puntos de
+control, cada uno con el snapshot del estado y el estado del generador. Para
+consultar el instante t se localiza el último punto con instante ≤ t mediante
+`ultimo_menor_o_igual`, una función nueva de nuestra `busqueda_binaria.py`, se
+restaura ese punto en una partida nueva con la línea en modo inerte, y se
+re-aplican las entradas que faltan. El archivo de partida guarda las entradas y
+**un solo** punto de control, el del instante 0; los demás se reconstruyen en la
+primera consulta de una partida cargada.
+
+Lo que inclinó la decisión no fue el rendimiento, que es comparable, sino que
+vuelve consecuencias del diseño las dos propiedades más difíciles de garantizar
+a mano: la persistencia de la historia y la no interferencia con la partida en
+curso.
+
+**Decisión sobre el cursor del inventario.** Re-simular exige que la secuencia
+de acciones determine el estado, y `sig` / `ant` cambian cuál es el objeto
+seleccionado sin ser acciones del jugador. Una re-simulación que los ignore usa
+o suelta otro objeto. Se registran en la línea y en `partida.log` como entradas
+con número 0: no consumen tiempo, no cuentan como acciones y no generan punto de
+control, pero se re-aplican en su posición. Esto corrige de paso un defecto real
+de la primera parte: una bitácora con movimientos de cursor no reproducía
+fielmente una partida que usara objetos no primeros del inventario.
+
+**Análisis de complejidad.** Con n acciones del jugador y K el intervalo entre
+puntos:
+
+| Operación | Costo |
+| --- | --- |
+| Registrar una acción | O(1) amortizado |
+| Tomar un punto de control | O(tamaño del estado), una vez cada K acciones |
+| Localizar el punto anterior a t | O(log(n/K)) |
+| Consultar un instante | O(log(n/K)) + restaurar un snapshot + re-aplicar ≤ K acciones |
+| Recortar con un pergamino | O(entradas y puntos descartados) |
+| Memoria | O(n) entradas + O(n/K) copias completas |
+
+La memoria cumple FR-024: el término que crece con n son las entradas, que son
+cuatro campos por acción, y las copias completas están divididas por K.
+
+**Evidencia empírica.** `--bench`, sección `[linea_tiempo]`, partida sintética
+de 5 000 acciones del jugador, semilla 47, cripta en anillo de 40 salas con
+costos variados. `bytes_linea` es el tamaño serializado de las entradas más los
+puntos de control. 25 instantes muestreados al azar de forma determinista, para
+no caer sistemáticamente sobre los puntos de control:
+
+| K | copias | bytes_linea | reaplicadas_max | ms consulta media | ms consulta máx |
+| --- | --- | --- | --- | --- | --- |
+| 1 (copia por acción) | 5 001 | 100 670 322 | 0 | 0.95 | 1.73 |
+| 25 | 201 | 4 180 506 | 24 | 0.59 | 0.92 |
+| **100 (por defecto)** | **51** | **1 163 144** | **97** | **0.81** | **1.15** |
+| 200 | 26 | 658 867 | 197 | 1.11 | 1.91 |
+| sin puntos de control | 1 | 24 490 | 477 | 2.12 | 3.18 |
+
+Y con una cripta diez veces mayor (400 salas), donde el estado por copia es el
+que de verdad pesa:
+
+| K | copias | bytes_linea | ms consulta máx |
+| --- | --- | --- | --- |
+| 1 | 5 001 | 630 818 053 | 4.44 |
+| 25 | 201 | 25 441 249 | 3.67 |
+| **100** | **51** | **6 523 236** | **4.94** |
+| 200 | 26 | 3 370 250 | 4.60 |
+
+**Justificación del K por defecto = 100.** Las mediciones muestran que el
+tiempo de consulta es prácticamente plano entre K = 1 y K = 200 (entre 0.9 y
+5 ms, nunca más del 10 % del límite de 50 ms), porque lo que domina una consulta
+es restaurar un snapshot, que cuesta igual para cualquier K, y no re-aplicar
+acciones, que es barato. Lo que sí varía, y en dos órdenes de magnitud, es la
+memoria: de 630 MB con una copia por acción a 6.5 MB con K = 100 en la cripta de
+400 salas. Por eso el criterio es tomar el K más grande que deje margen amplio
+de tiempo, y no el que minimice el tiempo.
+
+Se eligió 100 y no 200 porque el costo de re-aplicar crece linealmente con K y
+la cripta de referencia publicada puede ser varias veces mayor que la de 400
+salas medida aquí: con K = 100 la consulta usa el 10 % del presupuesto y queda
+margen para que el estado crezca. K = 200 es igual de válido si la memoria
+pesara más que el margen, y `--checkpoint-cada` permite cambiarlo sin tocar el
+código.
+
+**Por qué no coincide con el plan original.** El `plan.md` de la capacidad
+anotaba K = 25 como valor provisional antes de medir. Las mediciones mostraron
+que 25 no aprovecha que el tiempo de consulta es plano y paga 4 veces más
+memoria que 100 sin ganar nada observable, así que el valor final subió a 100.
+Es el único cambio del plan a la implementación en esta capacidad.
+
+**Interacción con el límite de 20 ms del ciclo de eventos (001 FR-031).** La
+única operación cara que esta capacidad agrega al camino de una acción es tomar
+el punto de control, una vez cada 100 acciones. `--bench` repite el escenario
+`[ciclo_eventos]` con la línea activa y con la línea apagada:
+
+| Escenario | ms media | ms máx | ms máx bruto | resultado |
+| --- | --- | --- | --- | --- |
+| 30 cazadores, línea activa (K = 100) | 1.40 | 2.74 | 11.92 | CUMPLE |
+| 30 cazadores, sin línea | 1.24 | 2.99 | 32.35 | CUMPLE |
+
+La diferencia en `ms_media` es de 0.16 ms, dentro del ruido. Es importante leer
+`ms_max` y no `ms_max_bruto`: `ms_max` es el máximo de los mínimos entre
+repeticiones, la técnica de `timeit`, y `ms_max_bruto` es la peor observación
+suelta, que incluye pausas del sistema operativo y del recolector de basura.
+Que la variante que hace **más** trabajo tenga un `ms_max_bruto` **menor**
+(11.92 frente a 32.35) es la prueba de que ese número mide interrupciones y no
+el programa.
+
+**Límites conocidos.**
+
+- La primera consulta de una partida cargada reconstruye los puntos de control
+  con una re-simulación completa. Medido en `reconstruccion_al_cargar`: 5.4 ms
+  para 400 acciones. Es un costo de una sola vez y queda fuera del límite de
+  FR-030, que se mide con los puntos ya construidos.
+- La corrección de las consultas depende del determinismo de toda la partida.
+  Si alguna regla consultara una fuente de azar fuera de `Partida.azar`, los
+  estados reconstruidos diferirían de los reales. El Principio II ya lo exige y
+  `--replay` ya lo probaba; aquí pasa a ser algo de lo que depende la
+  corrección, no solo la reproducibilidad. La prueba de SC-002 lo vigila
+  comparando cada consulta contra una re-simulación desde el inicio.
+- Guardar la línea hace crecer el archivo de partida con el número de acciones.
+  Son cuatro campos por acción, unos 25 bytes serializados, así que 5 000
+  acciones agregan del orden de 125 KB.
+- `ms_max_bruto` se conserva en la salida a propósito, aunque no sea el criterio,
+  porque esconder la peor observación sería peor que explicarla.
+
 ## Nota transversal de la segunda parte: cumplimiento del Principio I
 
 `tests/test_restricciones.py` verifica automáticamente con `ast` que los
@@ -977,5 +1315,18 @@ fuente en memoria, referencia teórica y utilidades de prueba) no importan
 `heapq`, `bisect`, `collections`, `queue`, `networkx` ni `functools.lru_cache`,
 ni usan diccionarios, conjuntos, `sorted` o `.sort`. El generador de criptas
 escribe texto JSON y solo se leen los diccionarios que devuelve `json.loads`.
-`src/servicios/banco_cazador.py` y `src/servicios/banco_resolubilidad.py` usan diccionarios únicamente para las filas
+`src/servicios/banco_cazador.py`, `src/servicios/banco_resolubilidad.py` y
+`src/servicios/banco_linea_tiempo.py` usan diccionarios únicamente para las filas
 del reporte de `--bench`, que no resuelven ningún problema evaluado.
+
+Lo mismo vale para el *snapshot* de `src/servicios/guardado.py`, que la línea de
+tiempo reutiliza como punto de control: es la carga de serialización que P1 ya
+usaba para guardar la partida, no un índice, una caché ni un registro. El índice
+de los puntos de control, que es la estructura que sí resuelve un problema
+evaluado (localizar el punto anterior a un instante), son dos listas paralelas y
+nuestra propia búsqueda binaria `ultimo_menor_o_igual`.
+
+El mapa conocido (capacidad 003) y la línea de tiempo (004) están en
+`ARCHIVOS_VIGILADOS`, y la vigilancia encontró una infracción real durante el
+desarrollo: `mapa_conocido.py` usaba `.sort()` de la biblioteca, que se
+reemplazó por `ordenar()` del grupo.

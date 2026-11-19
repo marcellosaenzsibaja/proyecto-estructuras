@@ -54,6 +54,10 @@ genera una y se muestra al iniciar la partida.
 | `--cargar <archivo>` | Retoma una partida guardada (`.bin` o `.json`) en vez de empezar una nueva |
 | `--puntajes-ruta <archivo>` | Archivo de la tabla de puntajes (por defecto `puntajes.json`) |
 | `--bench` | Mide el desempeño de los subsistemas propios del proyecto y termina, sin jugar |
+| `--verificar <id>` | Verifica si la cripta es resoluble y termina, sin instanciar la vista (código 0 resoluble, 1 no resoluble, 2 error) |
+| `--forzar` | Juega una cripta aunque la verificación diga que no es resoluble |
+| `--checkpoint-cada <K>` | Acciones del jugador entre puntos de control de la línea de tiempo (por defecto 100; ver `DECISIONES.md` §P2 5.5) |
+| `--hasta <t>` | Solo con `--replay`: reproduce hasta el instante `t`, imprime el resumen de la historia y termina, sin instanciar la vista |
 | `--verificar <cripta>` | Verifica si la cripta es resoluble, imprime el reporte y termina sin instanciar la vista (código 0 resoluble, 1 no resoluble, 2 error) |
 | `--forzar` | Juega una cripta aunque no sea resoluble; sin esta opción la partida no inicia y se muestra el reporte |
 
@@ -81,6 +85,10 @@ python main.py --bench
 | `sig` / `ant` | Recorrer el inventario (no consume tiempo) |
 | `ordenar` (`ord`) | Mostrar el inventario ordenado alfabéticamente, sin alterar su orden real |
 | `pergamino` (`perg`) | Consumir un pergamino de retroceso y deshacer la última acción y todo lo ocurrido después |
+| `mapa` (`mp`) | Ver el mapa que conoces: salas exploradas con sus salidas y el estado recordado de cada puerta, y las salas avistadas; no consume tiempo |
+| `ir a <sala>` | Viajar a una sala explorada por la ruta más barata que conoces, paso a paso; se detiene ante enemigos, daño o falta de ruta |
+| `historia <t>` (`hist`) | Ver el estado de la partida en el instante `t`; no consume tiempo ni se registra |
+| `historia #k` (`hist`) | Ver el estado justo antes de la acción número `k` del jugador |
 | `guardar [archivo]` (`gu`) | Guardar la partida (binario por defecto; `.json` si el archivo termina en esa extensión) |
 | `cargar [archivo]` (`ca`) | Retomar una partida guardada, dentro de la sesión en curso |
 | `puntajes` (`pts`) | Mostrar la tabla de mejores puntajes |
@@ -132,8 +140,10 @@ caché de fichas, la recuperación de fichas en memoria, el inventario, el
 historial de retroceso, el ordenamiento y el guardado/carga. Los resultados
 de referencia y su análisis están en `DECISIONES.md`.
 
-En la segunda parte agrega, con criptas sintéticas deterministas por semilla,
-las secciones del terreno y el cazador (`specs/001-terreno-cazador`):
+En la segunda parte agrega 16 secciones más, todas con criptas y partidas
+sintéticas deterministas por semilla y sin instanciar la vista.
+
+Terreno y cazador (`specs/001-terreno-cazador`):
 
 | Sección | Qué compara |
 | --- | --- |
@@ -141,11 +151,40 @@ las secciones del terreno y el cazador (`specs/001-terreno-cazador`):
 | `[cola_prioridad]` | Montículo binario propio frente a lista con búsqueda lineal |
 | `[reutilizacion]` | Reutilizar frente a recalcular siempre, con puertas estables e inestables |
 | `[escala]` | Salas examinadas con una cripta x1 y x10 con la misma región dentro del rango |
-| `[ciclo_eventos]` | Peor ciclo entre dos decisiones del jugador con 30 cazadores; `CUMPLE` si es menor que 20 ms |
+| `[ciclo_eventos]` | Peor ciclo entre dos decisiones del jugador con 30 cazadores, con la línea de tiempo activa y sin ella; `CUMPLE` si es menor que 20 ms |
 | `[revision_p1]` | Agenda e historial de retroceso de P1 con la carga nueva |
 | `[determinismo]` | Misma semilla, mismas criptas sintéticas |
+
+Verificación de resolubilidad (`specs/002-verificacion-resolubilidad`):
+
+| Sección | Qué compara |
+| --- | --- |
 | `[resolubilidad]` | Recorrido reactivo frente a repetir el recorrido por llave, con cadenas de 10 a 500 llaves y una cuadrícula de 1 000 salas; `CUMPLE` si es menor que 200 ms |
 | `[resolubilidad_determinismo]` | Dos verificaciones de la misma cripta dan el mismo orden |
+
+Niebla de guerra y «ir a» (`specs/003-niebla-guerra`):
+
+| Sección | Qué compara |
+| --- | --- |
+| `[mapa_consultas]` | Costo por consulta con 100, 400 y 1 600 salas exploradas; no debe crecer con el mapa conocido |
+| `[mapa_exploracion]` | Salas y puertas tocadas al revelar k vecinas con la antorcha, con un mapa ya conocido pequeño y uno diez veces mayor; los conteos deben ser iguales |
+| `[viaje_paso]` | Un paso de «ir a» con el mapa conocido completo, a la escala de referencia (400 salas) y en estrés (1 600 salas); `CUMPLE` si es menor que 5 ms |
+| `[viaje_vs_cazador]` | Paso de «ir a» frente al buscador aislado, para respaldar la decisión de no compartir el recorrido con el cazador |
+| `[mapa_determinismo]` | Misma semilla, mismo mapa y mismas rutas |
+
+Línea de tiempo (`specs/004-linea-de-tiempo`):
+
+| Sección | Qué compara |
+| --- | --- |
+| `[linea_tiempo]` | Memoria y tiempo de consulta para K = 1, 25, 100 y 200 en una partida de 5 000 acciones, más las alternativas descartadas de una copia por acción y de no usar puntos de control, y el costo de reconstruir los puntos al cargar; `CUMPLE` si la consulta es menor que 50 ms |
+| `[linea_determinismo]` | Misma semilla, misma historia y mismos resúmenes |
+
+**Nota sobre `[viaje_paso]`:** la fila `viaje_paso_estres_1600_salas` puede
+reportar `NO CUMPLE` según el equipo. Es deliberado: el límite de 5 ms se aplica
+a la cripta de referencia, y el servicio publica criptas de ~20 a varios cientos
+de salas, así que la fila de 1 600 salas es el tamaño sintético de estrés y se
+reporta aunque no cumpla. El análisis y la mitigación están en `DECISIONES.md`
+§P2 5.3.
 
 ## Pruebas
 
@@ -190,6 +229,54 @@ python -m unittest tests.test_busqueda_binaria tests.test_monticulo_llaves tests
 - `test_cli_verificar.py`: caso 4 (sin `--forzar` la partida no inicia), `--verificar`
   y sus códigos de salida.
 - `test_bench_resolubilidad.py`: equivalencia con la alternativa ingenua y límite de 200 ms.
+
+## Niebla de guerra
+
+El jugador ya no ve el mapa completo (`specs/003-niebla-guerra`). Cada sala está
+**explorada** (entró al menos una vez, o la reveló una antorcha encendida),
+**avistada** (es destino de una salida de una sala explorada, y solo se sabe que
+existe) o **desconocida**. El mapa recuerda el estado de cada puerta tal como se
+vio la última vez, así que puede figurar abierta una puerta que ya se cerró.
+
+La antorcha pasa a tener efecto: con una encendida, entrar a una sala explora
+todas sus vecinas por salidas abiertas y cerradas, revelando nombre y salidas
+pero no contenido, y sin despertar a sus enemigos ni disparar sus trampas. Por
+eso un `ir a` que atraviesa una sala revelada solo por antorcha puede detenerse
+en ella.
+
+`ir a <sala>` acepta el id de la sala o su nombre (sin distinguir mayúsculas ni
+tildes) y solo rutea por salas exploradas y puertas que el mapa recuerda
+abiertas. No abre puertas, aunque tengas la llave.
+
+## Línea de tiempo y formato de guardado
+
+La línea de tiempo (`specs/004-linea-de-tiempo`) permite consultar el estado de
+la partida en cualquier instante pasado sin modificarla, y es independiente del
+pergamino de retroceso, que sigue limitado a 5 acciones. Se guarda la secuencia
+de acciones del jugador y, cada `K` acciones, un punto de control con una copia
+completa del estado; una consulta restaura el punto anterior al instante pedido
+y re-aplica a lo sumo `K` acciones. El valor por defecto de `K` es **100** y
+está justificado con mediciones en `DECISIONES.md` §P2 5.5.
+
+Dos cambios de formato que conviene conocer antes de entregar o de retomar
+partidas viejas:
+
+- **El formato del archivo de partida sube a la versión 3.** Agrega el mapa
+  conocido (capacidad 003), la línea de tiempo (004), el cursor del inventario,
+  los efectos activos y los eventos pendientes. Los archivos guardados con las
+  versiones 1 (primera parte) y 2 (capacidades 001 y 002) **se rechazan** con un
+  mensaje de incompatibilidad; no se cargan en silencio. Es el comportamiento
+  que pide el enunciado, no un error.
+- **`partida.log` gana dos registros nuevos**, `cursor_sig` y `cursor_ant`, para
+  que una partida que usa objetos no primeros del inventario se reproduzca
+  fielmente. Una bitácora grabada por las capacidades anteriores sigue
+  leyéndose; una bitácora nueva no reproduce igual en una versión anterior del
+  programa.
+
+```
+python main.py --cripta cripta-01 --semilla 42 --checkpoint-cada 50
+python main.py --replay bitacora.log --hasta 1850
+```
 
 ## Documentación adicional
 

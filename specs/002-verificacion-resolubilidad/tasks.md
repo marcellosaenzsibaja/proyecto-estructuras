@@ -178,7 +178,7 @@ description: "Lista de tareas para la implementación de la verificación de res
 
 - [x] T030 [P] Ejecutar la suite `tests/test_restricciones.py` para validar mediante análisis de AST que ningún módulo nuevo en `src/` o `tests/` utiliza `dict`, `set`, `heapq`, `bisect`, `collections` ni bibliotecas externas de grafos {FR-025, FR-028, FR-031}
 - [x] T031 Ejecutar la suite completa de pruebas unitarias y de aceptación (`python -m unittest discover tests/`) comprobando que todas las pruebas existentes de P1 y de la capacidad 001 continúan pasando al 100% (SC-008) {FR-025}
-- [ ] T032 Ejecutar la validación completa guiada en [quickstart.md](quickstart.md) verificando pruebas unitarias, comandos CLI (`--verificar`, `--forzar`) y salida formateada de `--bench` {FR-020, FR-026, FR-030}
+- [~] T032 Ejecutar la validación completa guiada en [quickstart.md](quickstart.md) verificando pruebas unitarias, comandos CLI (`--verificar`, `--forzar`) y salida formateada de `--bench` {FR-020, FR-026, FR-030}
 
 ---
 
@@ -243,3 +243,7 @@ Phase 8: Polish & Verificación Integral (AST, regresión global, quickstart)
 - T006: la prueba del montículo con pares de llaves está en `tests/test_monticulo_llaves.py`; T026: el archivo es `tests/test_bench_resolubilidad.py`.
 - T025: `--cargar` y `--replay` no ejecutan la verificación; solo la ejecuta el inicio de una partida nueva. Al abortar una partida no resoluble sin `--forzar` el proceso devuelve código 1.
 - T032 (validación guiada de `quickstart.md`) queda pendiente.
+
+> T032 queda parcial: las pruebas unitarias, la salida de `--bench` y los códigos de
+> salida de `--verificar` y `--forzar` se validaron; las cuatro comprobaciones contra
+> una cripta publicada del servicio requieren red y las ejecuta el grupo.
